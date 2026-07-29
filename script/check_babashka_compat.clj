@@ -8,7 +8,8 @@
     [fr.jeremyschoffen.prose.alpha.out.html.tags :as html-tags]
     [fr.jeremyschoffen.prose.alpha.out.latex.compiler :as latex]
     [fr.jeremyschoffen.prose.alpha.out.markdown.compiler :as markdown]
-    [fr.jeremyschoffen.prose.alpha.out.markdown.tags :as markdown-tags]))
+    [fr.jeremyschoffen.prose.alpha.out.markdown.tags :as markdown-tags]
+    [fr.jeremyschoffen.prose.alpha.reader.portable :as portable]))
 
 
 (deftest compatible-modules
@@ -29,6 +30,19 @@
           :html (html/compile! [(html-tags/strong "42")])
           :markdown (markdown/compile! [(markdown-tags/code-block "42")])
           :latex (latex/compile! [(lib/xml-tag :strong "42")])})))
+
+
+(deftest portable-reader-path
+  (is (= {:forms '["Unicode α\nbefore " some.ns/value " and " "literal ◊ text"]
+          :parser-libraries-loaded? false}
+         {:forms (portable/read-from-string
+                  "Unicode α\nbefore ◊|some.ns/value and ◊\"literal ◊ text\"")
+          :parser-libraries-loaded?
+          (boolean
+           (some (fn [namespace]
+                   (re-find #"^(instaparse|lambdaisland\.regal)"
+                            (str (ns-name namespace))))
+                 (all-ns)))})))
 
 
 (let [{:keys [fail error]} (run-tests)]

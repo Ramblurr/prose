@@ -15,11 +15,9 @@ The different syntactic elements are processed as follows:
 "}
   fr.jeremyschoffen.prose.alpha.reader.core
   (:require
-    [edamame.core :as eda]
-    [clojure.walk :as walk]
     [instaparse.core :as insta]
-    [medley.core :as medley]
 
+    [fr.jeremyschoffen.prose.alpha.reader.clojurizer :as clojurizer]
     [fr.jeremyschoffen.prose.alpha.reader.grammar :as g]
     [fr.jeremyschoffen.prose.alpha.reader.core.error :as error]))
 
@@ -41,160 +39,48 @@ The different syntactic elements are processed as follows:
 
 
 (def ^:dynamic *parse-region*
-  "Stores the parse regions given by instaparse when clojurizing the parse tree."
+  "Stores the parse region while clojurizing a parse node."
   {})
 
-
-(def ^:dynamic *reader-options* {:deref true
-                                 :fn true
-                                 :quote true
-                                 :read-eval false
-                                 :regex true
-                                 :syntax-quote true
-                                 :var true
-                                 :read-cond :preserve})
-
+(def ^:dynamic *reader-options* clojurizer/*reader-options*)
 
 (defn read-string*
-  "Wrapping of edamame's read-string function for use in our reader."
+  "Wraps Edamame's reader for use in the Prose reader."
   [s]
-  (try
-    (eda/parse-string s *reader-options*)
-    (catch #?@(:clj [Exception e] :cljs [js/Error e])
-           (throw
-             (ex-info "Reader failure."
-                      {:type ::error/clojure-reader-error
-                       :text s
-                       :region *parse-region*
-                       :failure e})))))
-
-
-;;----------------------------------------------------------------------------------------------------------------------
-;; Clojurizing
-;;----------------------------------------------------------------------------------------------------------------------
-(declare clojurize)
-
+  (binding [clojurizer/*parse-region* *parse-region*
+            clojurizer/*reader-options* *reader-options*]
+    (clojurizer/read-string* s)))
 
 (defn extract-tags
-  "Replaces the tags by generated unique symbols and creates a mapping from
-  those symbols to the replaced tag data."
+  "Replaces tags with unique symbols and maps those symbols to the replaced tag data."
   [content]
-  (let [env (volatile! (transient {}))
-        form (volatile! (transient []))]
-
-    (doseq [v content]
-      (if (string? v)
-        (vswap! form conj! v)
-        (let [sym (gensym "tag")]
-          (vswap! env assoc! sym v)
-          (vswap! form conj! (str " " sym " ")))))
-
-    {:env (-> env deref persistent!)
-     :form (->  form
-                deref
-                persistent!
-                (->> (apply str)))}))
-
+  (clojurizer/extract-tags content))
 
 (defn inject-clojurized-tags
-  "Walks the clojurized block and replaces placeholder symbols by the clojurized content."
+  "Replaces placeholder symbols with clojurized tag data."
   [form env]
-  (walk/prewalk (fn [v]
-                  (if-let [t (and (symbol? v)
-                                  (get env v))]
-                    (clojurize t)
-                    v))
-                form))
-
+  (binding [clojurizer/*parse-region* *parse-region*
+            clojurizer/*reader-options* *reader-options*]
+    (clojurizer/inject-clojurized-tags form env)))
 
 (defn clojurize-mixed
-  "The basic content of an embedded code block is a sequence of strings and tags. These tags can't be read by
-  the clojure reader.
-
-  To turn that block into clojure data, the trick is to replace the tags by place-holder strings that will be read as
-  symbols. We can then use the clojure(script) reader on the result. Next we walk the code that's now data and replace
-  those symbols with the clojurized tags."
+  "Reads mixed Clojure text and nested Prose nodes as Clojure data."
   [content]
-  (let [{:keys [env form]} (extract-tags content)
-        form (read-string* form)]
-    (inject-clojurized-tags form env)))
-
+  (binding [clojurizer/*parse-region* *parse-region*
+            clojurizer/*reader-options* *reader-options*]
+    (clojurizer/clojurize-mixed content)))
 
 (defn add-type [x t]
-  (vary-meta x assoc ::type t))
-
-
-(defmulti clojurize* :tag)
-
-
-(defmethod clojurize* :default [node]
-  (throw (ex-info "Unknown parse result." {:tag node})))
-
-
-(defmethod clojurize* :doc [node]
-  (mapv clojurize (:content node)))
-
-
-(defmethod clojurize* :symbol-use [node]
-  (-> node :content first read-string*))
-
-
-(defmethod clojurize* :clojure-call [node]
-  (-> node :content clojurize-mixed))
-
-
-(defmethod clojurize* :tag [node]
-  (->> node
-       :content
-       (into [] (mapcat clojurize))
-       seq))
-
-
-(defmethod clojurize* :tag-unspliced [node]
-  (->> node
-       :content
-       (into [] (map clojurize))
-       seq))
-
-
-(defmethod clojurize* :tag-name [node]
-  (-> node :content first read-string* vector))
-
-
-(defmethod clojurize* :tag-clj-arg [node]
-  (add-type (-> node
-                :content
-                clojurize-mixed)
-            :tag-clj-arg))
-
-
-(defmethod clojurize* :tag-text-arg [node]
-  (add-type (->> node
-                 :content
-                 rest
-                 butlast
-                 (mapv clojurize))
-            :tag-text-arg))
-
-
-(defn- add-parse-region-meta [form region]
-  (->> region
-       (medley/map-keys #(-> % name keyword))
-       (vary-meta form assoc ::parse-region)))
-
+  (clojurizer/add-type x t))
+(def clojurize* clojurizer/clojurize*)
 
 (defn clojurize
   "Function that turns a prose parse tree to data that clojure can eval.
   clojure form that are clojurized have parse info in their metadata."
   [form]
-  (if (string? form)
-    form
-    (binding [*parse-region* (meta form)]
-      (let [res (clojurize* form)]
-        (cond-> res
-                (not (string? res))
-                (add-parse-region-meta *parse-region*))))))
-
+  (binding [clojurizer/*parse-region* *parse-region*
+            clojurizer/*reader-options* *reader-options*]
+    (clojurizer/clojurize form)))
 
 
 (defn read-from-string* [text]
