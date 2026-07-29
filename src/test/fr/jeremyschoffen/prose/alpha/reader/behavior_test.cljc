@@ -1,31 +1,31 @@
-(ns fr.jeremyschoffen.prose.alpha.reader.portable-test
+(ns fr.jeremyschoffen.prose.alpha.reader.behavior-test
   (:require
     #?(:clj [clojure.test :refer [deftest is are]]
        :cljs [cljs.test :refer-macros [deftest is are]])
-    [fr.jeremyschoffen.prose.alpha.reader.portable :as portable]))
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
 
 
 (deftest reads-ordinary-text-without-normalizing-whitespace
-  (are [source] (= [source] (portable/read-from-string source))
+  (are [source] (= [source] (reader/read-from-string source))
     "plain text with () [] {} and punctuation"
     "Unicode: Καλημέρα κόσμε 👋"
     "first line\n  indented second line\n")
-  (is (= [] (portable/read-from-string ""))))
+  (is (= [] (reader/read-from-string ""))))
 
 
 (deftest preserves-verbatim-content-and-escapes
-  (are [source expected] (= expected (portable/read-from-string source))
+  (are [source expected] (= expected (reader/read-from-string source))
     "◊\"literal ◊ text\"" ["literal ◊ text"]
     "before ◊\"literal◊\" after" ["before " "literal◊" " after"]
     "◊\"a\\\"b\"" ["a" "\"" "b"]
     "◊\"a\\\\b\"" ["a" "\\" "b"]
     "◊\"\"" [])
   (is (= ["a" "◊" "b"]
-         (portable/read-from-string (str "◊\"a" \\ \◊ "b\"")))))
+         (reader/read-from-string (str "◊\"a" \\ \◊ "b\"")))))
 
 
 (deftest reads-symbols-with-current-token-boundaries
-  (are [source expected] (= expected (portable/read-from-string source))
+  (are [source expected] (= expected (reader/read-from-string source))
     "◊|simple" '[simple]
     "before ◊|some.ns/value after" '["before " some.ns/value " after"]
     "◊|simple [after]" '[simple " [after]"]
@@ -36,14 +36,14 @@
 
 
 (deftest reads-parenthesized-clojure-forms
-  (are [source expected] (= expected (portable/read-from-string source))
+  (are [source expected] (= expected (reader/read-from-string source))
     "◊(+ 1 (* 2 3))" '[(+ 1 (* 2 3))]
     "before ◊(vector [1 {:x (inc 1)}]) after"
     '["before " (vector [1 {:x (inc 1)}]) " after"]))
 
 
 (deftest protects-clojure-strings-while-balancing-parentheses
-  (are [source expected] (= expected (portable/read-from-string source))
+  (are [source expected] (= expected (reader/read-from-string source))
     "◊(str \"closing ) and ◊|plain\" \"escaped: \\\" and \\\\ slash\")"
     '[(str "closing ) and ◊|plain" "escaped: \" and \\ slash")]
     "◊(str \"([{}])\")" '[(str "([{}])")]))
@@ -51,23 +51,23 @@
 
 (deftest restores-supported-prose-commands-inside-clojure
   (is (= '[(vector some.ns/value (inc 1) 42)]
-         (portable/read-from-string
+         (reader/read-from-string
            "◊(vector ◊|some.ns/value ◊(inc 1) ◊\"42\")"))))
 
 
 (deftest honors-reader-options-and-safe-defaults
   (is (= '[((clojure.core/deref state))]
-         (portable/read-from-string "◊(@state)")))
+         (reader/read-from-string "◊(@state)")))
   (is (= '[(:example.ns/value)]
-         (portable/read-from-string
+         (reader/read-from-string
            "◊(::alias/value)"
            {:reader-options {:auto-resolve {'alias 'example.ns}}})))
   (is (thrown? #?(:clj Exception :cljs js/Error)
-               (portable/read-from-string "◊(#=(+ 1 2))"))))
+               (reader/read-from-string "◊(#=(+ 1 2))"))))
 
 
 (deftest reads-named-commands-and-delimited-arguments
-  (are [source expected] (= expected (portable/read-from-string source))
+  (are [source expected] (= expected (reader/read-from-string source))
     "◊tag" '[(tag)]
     "◊some.ns/tag" '[(some.ns/tag)]
     "◊foo/bar/baz" '[(foo/bar) "/baz"]
@@ -79,7 +79,7 @@
 
 
 (deftest preserves-named-command-argument-order-and-whitespace
-  (are [source expected] (= expected (portable/read-from-string source))
+  (are [source expected] (= expected (reader/read-from-string source))
     "◊tag [1]\n  {body}" '[(tag 1 "body")]
     "◊tag[1]{two}[3]{four}" '[(tag 1 "two" 3 "four")]
     "◊tag\u00a0[1]" '[(tag 1)]
@@ -87,7 +87,7 @@
 
 
 (deftest reads-recursively-nested-named-commands
-  (are [source expected] (= expected (portable/read-from-string source))
+  (are [source expected] (= expected (reader/read-from-string source))
     "◊outer{before ◊inner{x} after}"
     '[(outer "before " (inner "x") " after")]
     "◊outer[:value ◊inner{x}]"
@@ -97,7 +97,7 @@
 
 
 (deftest preserves-unspliced-command-shape
-  (are [source expected] (= expected (portable/read-from-string source))
+  (are [source expected] (= expected (reader/read-from-string source))
     "◊◊group[a b]{body}" '[([group] [a b] ["body"])]
     "◊◊some.ns/group [a] {body}" '[([some.ns/group] [a] ["body"])]))
 
@@ -105,7 +105,7 @@
 (deftest reads-representative-named-command-document
   (is (= '["Some text. "
            (div {:class (str "c1 c2")} " " (def x 1) " " (def y 2) " ")]
-         (portable/read-from-string
+         (reader/read-from-string
            "Some text. ◊div[{:class ◊str{c1 c2}}] { ◊def[x 1] ◊(def y 2) }"))))
 
 (defn form-region [form]
@@ -115,7 +115,7 @@
 
 (defn read-error [source]
   (try
-    (portable/read-from-string source)
+    (reader/read-from-string source)
     (catch #?@(:clj [Exception e] :cljs [js/Error e])
       e)))
 
@@ -126,7 +126,7 @@
 
 (deftest attaches-half-open-source-regions-and-positions
   (let [source "first\n◊outer[1]{body\n  ◊inner{x}} and ◊(+ 1 2)"
-        document (portable/read-from-string source)
+        document (reader/read-from-string source)
         outer (second document)
         inner (nth outer 3)
         clojure-call (nth document 3)]
@@ -160,7 +160,7 @@
             :clojure-call (form-region clojure-call)}))))
 
 (deftest attaches-regions-to-each-non-text-node-category
-  (let [document (portable/read-from-string
+  (let [document (reader/read-from-string
                    "pre\n◊|value ◊◊group[1]{body ◊inner{x}}")
         symbol (second document)
         command (nth document 3)
@@ -185,7 +185,7 @@
 
 (deftest recovers-exact-source-at-every-nesting-level
   (let [source "pre\n◊◊group[1]{body ◊inner{x}}"
-        document (portable/read-from-string source)
+        document (reader/read-from-string source)
         command (second document)
         name-form (first command)
         square-argument (second command)
@@ -197,18 +197,18 @@
             :square-argument "[1]"
             :text-argument "{body ◊inner{x}}"
             :inner "◊inner{x}"}
-           {:document (portable/form->text document source)
-            :command (portable/form->text command source)
-            :name (portable/form->text name-form source)
-            :square-argument (portable/form->text square-argument source)
-            :text-argument (portable/form->text text-argument source)
-            :inner (portable/form->text inner source)}))))
+           {:document (reader/form->text document source)
+            :command (reader/form->text command source)
+            :name (reader/form->text name-form source)
+            :square-argument (reader/form->text square-argument source)
+            :text-argument (reader/form->text text-argument source)
+            :inner (reader/form->text inner source)}))))
 
 (deftest owns-normalized-error-data
   (let [source "line one\nbefore ◊"
         error (read-error source)
         data (ex-data error)]
-    (is (= {:type :fr.jeremyschoffen.prose.alpha.reader.portable/syntax-error
+    (is (= {:type :fr.jeremyschoffen.prose.alpha.reader.core.error/syntax-error
             :source source
             :text "◊"
             :start-index 16
@@ -295,11 +295,11 @@
   (let [repetitions 1000
         chunk "text\n◊outer[1]{body ◊inner{x}} ◊(+ 1 2)\n"
         source (apply str (repeat repetitions chunk))
-        forms (portable/read-from-string source)]
+        forms (reader/read-from-string source)]
     (is (= {:form-count (inc (* 4 repetitions))
             :last-command "◊(+ 1 2)"
             :document-length (count source)}
            {:form-count (count forms)
-            :last-command (portable/form->text (nth forms (- (count forms) 2))
+            :last-command (reader/form->text (nth forms (- (count forms) 2))
                                                source)
             :document-length (-> forms form-region :end-index)}))))

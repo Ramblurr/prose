@@ -15,3 +15,5 @@ cljs-test opts="":
 
 bb-compat-test:
 	bb -Sdeps '{:deps {io.github.jerems/prose {:local/root "."}}}' script/check_babashka_compat.clj
+
+test: clj-test cljs-test bb-compat-test

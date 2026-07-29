@@ -1,10 +1,9 @@
 (ns fr.jeremyschoffen.prose.alpha.eval.clojure-test
   (:require
     [clojure.string]
-    [clojure.test :refer :all]
-    [fr.jeremyschoffen.prose.alpha.eval.common :as eval :include-macros true]
-    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]
-    [fr.jeremyschoffen.prose.alpha.reader.portable :as portable]))
+    [clojure.test :refer [deftest is]]
+    [fr.jeremyschoffen.prose.alpha.eval.common :as eval]
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
 
 
 (def program-1 '[(conj [1 2] 3) (+ 1 2 3)])
@@ -23,10 +22,16 @@
              eval/eval-forms))))
 
 
-(deftest evaluates-portable-reader-output
-  (is (= ["HELLO"]
-         (-> "◊(clojure.string/upper-case \"hello\")"
-             portable/read-from-string
+(deftest trusted-evaluator-retains-host-capabilities
+  (is (= '[nil
+            {:tag :strong, :content ["x"], :type :tag}
+            :expanded
+            42]
+         (-> (str "◊(require 'fr.jeremyschoffen.prose.alpha.out.html.tags)"
+                  "◊(fr.jeremyschoffen.prose.alpha.out.html.tags/strong \"x\")"
+                  "◊(when true :expanded)"
+                  "◊(Long/parseLong \"42\")")
+             reader/read-from-string
              eval/eval-forms))))
 
 
@@ -49,4 +54,3 @@
 
   (is (= (-> faulty-evaluation ex-cause ex-data)
          {:some :expected-data})))
-

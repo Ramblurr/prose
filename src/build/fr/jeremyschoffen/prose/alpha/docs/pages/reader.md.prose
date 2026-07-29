@@ -1,112 +1,83 @@
 ◊(require '[fr.jeremyschoffen.prose.alpha.docs.tags :as t])
-◊(require '[instaparse.core :as insta])
-◊(require '[instaparse.combinators :as instac])
-◊(require '[fr.jeremyschoffen.prose.alpha.reader.grammar.utils :as gu])
-◊(require '[clojure.pprint :as pp])
 
 
-# Prose's reader implementation.
+# Prose reader
 
-The goal of prose's reader is to translate prose style text into clojure data
-that can be evaluated by clojure's `eval` function. To do so we make use of the
-instaparse and edamame libraries. Instaparse helps us separate text that is text
-from text that is code. Edamame is used to read textual code into clojure data.
+The public reader turns a source string into ordinary Clojure data. It does not
+evaluate the result. Call
+◊t/sym[fr.jeremyschoffen.prose.alpha.reader.core/read-from-string] to read a
+document and ◊t/sym[fr.jeremyschoffen.prose.alpha.reader.core/form->text] to
+recover source text from a returned form.
 
-We explore here the way our reader is constructed.
+## Syntax
 
-## The instaparse grammar
-We use instaparse to express prose's grammar and generate it's parser.
-Instaparse doesn't make a distinction between lexer and parser. Still it is
-usefull to separate our grammar using this usual lexer / grammar dichotomy in
-the code.
+Text stays text until the lozenge (◊"◊") introduces a command.
 
-### The lexer.
-Our lexer is made of regular expressions constructed with the
-◊t/sym[gu/def-regex] macro. It uses the Regal library under the covers.
+| Source | Behavior |
+| --- | --- |
+| `◊"◊\"text\""` | Returns verbatim text. A backslash escapes the next character. |
+| `◊"◊|qualified/symbol"` | Inserts a simple or namespace-qualified Clojure symbol. |
+| `◊"◊(form)"` | Reads one embedded Clojure form. |
+| `◊"◊tag[args]{text}"` | Reads a named command as an ordinary function-call form. |
+| `◊"◊◊tag[args]{text}"` | Returns grouped data as `([tag] [args] ["text"])`; arguments are not spliced into a call. |
 
-To assemble these regexes into a lexer we use the ◊t/sym[gu/make-lexer] macro.
+Named commands accept simple or qualified names. Square arguments contain
+Clojure data; curly arguments contain text. Either argument type may repeat,
+and the reader preserves their order. Whitespace may separate the command name
+and its arguments. Commands may nest in square arguments, curly arguments, and
+parenthesized Clojure forms.
 
-Using instaparse and some helpers
-◊t/clj {
-(require '[instaparse.core :as insta])
-(require '[instaparse.combinators :as instac])
-(require '[fr.jeremyschoffen.prose.alpha.reader.grammar.utils :as gu])
-(require '[clojure.pprint :as pp])
-}
+Delimited arguments balance nested parentheses, brackets, or braces. Clojure
+strings protect delimiters, lozenges, and backslash escapes until the closing
+quote. Text and multiline whitespace otherwise pass through unchanged.
 
-◊t/code-s {
-(defn p [s] (-> s pp/pprint with-out-str))
-}
+## Reader output
 
-we can construct the following 2 rules lexer:
-◊t/code {
-(gu/def-regex number [:* :digit])
-
-(gu/def-regex word [:* [:class ["a" "z"]]])
-
-(def lexer (gu/make-lexer number word))
-
-(p lexer))
-}
-
-Note that our lexer is actually a (partial) instaparse grammar.
-
-
-### The grammatical rules
-Most of the grammatical rules are created using the ebnf notation:
-◊t/code {
-(def rules
-  (instac/ebnf
-    "
-    doc = (token <':'>)*
-    token = (number | word)
-    "))
-
-(p rules))
-}
-
-
-### Combining the two
-Now that we have both a lexer and a grammar, we can simply merge them to make
-our parser.
-◊t/code {
-(def parser
-  (insta/parser (merge lexer rules)
-                :start :doc))
-
-(p (parser "abc:1:def:2:3:")))
-}
-
-
-## The reader
-Prose's parser generated with instaparse is insufficient to constitute a reader
-by itself.
-
-We can compare the results of the parser and the reader on an example.
-
-◊t/code-s {
+```clojure
 (require '[fr.jeremyschoffen.prose.alpha.reader.core :as reader])
-(require '[fr.jeremyschoffen.prose.alpha.reader.grammar :as g])
-(require '[fr.jeremyschoffen.prose.alpha.document.lib :as lib])
-}
 
-◊t/code {
-(def example (lib/slurp-doc "reader/example.prose"))
+(reader/read-from-string "Hello, ◊"◊"strong{world}!")
+;; => ["Hello, " (strong "world") "!"]
+```
 
-example
-}
+The result contains ordinary strings, symbols, collections, and lists. The
+reader neither chooses an evaluator nor creates an evaluator-specific AST.
 
-The parser by itself distinguishes between text and code:
+The optional `:reader-options` map replaces the safe Edamame defaults while
+reading embedded Clojure. Read-eval remains disabled by default.
 
-◊t/code {
-(-> example g/parser p)
-}
+```clojure
+(reader/read-from-string
+  "◊"◊"(::alias/value)"
+  {:reader-options {:auto-resolve {'alias 'example.ns}}})
+;; => [(:example.ns/value)]
+```
 
-The ◊t/sym[reader/clojurize] function takes the result of the parser and
-re-arranges it into evaluable data:
-◊t/code {
-(-> example g/parser reader/clojurize p)
-}
+## Source regions and errors
 
-This reading in 2 phases is provided by the ◊t/sym[reader/read-from-string]
-function.
+Every non-text form carries a
+`:fr.jeremyschoffen.prose.alpha.reader.core/parse-region` metadata map. Regions
+use half-open `:start-index` and `:end-index` values plus one-based line and
+column positions. ◊t/sym[fr.jeremyschoffen.prose.alpha.reader.core/form->text]
+uses that metadata to return the exact source slice. Strings return themselves.
+
+Malformed commands throw `ExceptionInfo` with Prose-owned data. The data
+includes `:type`, `:source`, `:text`, indexes, line and column positions, and the
+`:expected` construct. Dangling lozenges, invalid command names or symbols,
+unterminated strings, unclosed delimiters, and invalid embedded Clojure all use
+this error shape.
+
+## Evaluators and runtimes
+
+Reader output works with both existing evaluator modes. Trusted JVM Clojure
+uses `clojure.core/eval`, retains the runtime classpath, performs normal macro
+expansion and compilation, and supports Java interop. SCI remains a separate,
+portable evaluator for supported hosts.
+
+The reader, document helpers, tag constructors, and output compilers load under
+Babashka. Prose's SCI evaluator still has a separate nested `sci/binding`
+limitation when Babashka hosts it; this reader change does not claim complete
+Babashka read-evaluate-compile compatibility.
+
+Run `just test` to execute the Clojure, ClojureScript, and mandatory Babashka
+compatibility gates.

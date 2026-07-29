@@ -9,7 +9,7 @@
     [fr.jeremyschoffen.prose.alpha.out.latex.compiler :as latex]
     [fr.jeremyschoffen.prose.alpha.out.markdown.compiler :as markdown]
     [fr.jeremyschoffen.prose.alpha.out.markdown.tags :as markdown-tags]
-    [fr.jeremyschoffen.prose.alpha.reader.portable :as portable]))
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
 
 
 (deftest compatible-modules
@@ -32,11 +32,11 @@
           :latex (latex/compile! [(lib/xml-tag :strong "42")])})))
 
 
-(deftest portable-reader-path
+(deftest public-reader-path
   (let [named-source "Some text. ◊div[{:class ◊str{c1 c2}}] { ◊def[x 1] ◊(def y 2) }"
-        named-forms (portable/read-from-string named-source)
+        named-forms (reader/read-from-string named-source)
         error-data (try
-                     (portable/read-from-string "line one\nbefore ◊")
+                     (reader/read-from-string "line one\nbefore ◊")
                      (catch Exception error
                        (select-keys (ex-data error)
                                     [:type :text :index :line :column :expected])))]
@@ -55,7 +55,7 @@
                             :end-line 1
                             :end-column 63}
             :error-data
-            {:type :fr.jeremyschoffen.prose.alpha.reader.portable/syntax-error
+            {:type :fr.jeremyschoffen.prose.alpha.reader.core.error/syntax-error
              :text "◊"
              :index 17
              :line 2
@@ -63,17 +63,17 @@
              :expected "a command"}
             :reader-options '[(:example.ns/value)]
             :parser-libraries-loaded? false}
-           {:forms (portable/read-from-string
+           {:forms (reader/read-from-string
                     "Unicode α\nbefore ◊(vector ◊|some.ns/value ◊(inc 1) ◊\"42\") and ◊\"literal ◊ text\"")
             :named-forms named-forms
-            :source-text (portable/form->text (second named-forms) named-source)
+            :source-text (reader/form->text (second named-forms) named-source)
             :source-region
             (-> named-forms
                 second
                 meta
                 :fr.jeremyschoffen.prose.alpha.reader.core/parse-region)
             :error-data error-data
-            :reader-options (portable/read-from-string
+            :reader-options (reader/read-from-string
                              "◊(::alias/value)"
                              {:reader-options
                               {:auto-resolve {'alias 'example.ns}}})

@@ -1,41 +1,13 @@
-(ns ^{:author "Jeremy Schoffen"
-      :doc "
-This namespaces provides a reader that combines our grammar and clojure's reader to turn a string of prose text into
-data clojure can then evaluate.
+(ns fr.jeremyschoffen.prose.alpha.reader.core
+  "Reads Prose documents into evaluator-neutral Clojure data.
 
-The reader starts by parsing the text using our grammar. This gives a first data representation from which
-is computed data that clojure can evaluate.
-
-The different syntactic elements are processed as follows:
-- text -> string
-- clojure call -> itself
-- symbol -> itself
-- tag -> clojure fn call
-- verbatim block -> string containing the verbatim block's content.
-"}
-  fr.jeremyschoffen.prose.alpha.reader.core
+  [[read-from-string]] returns ordinary forms for either the trusted JVM
+  evaluator or the separate SCI evaluator. [[form->text]] maps a returned form
+  back to its exact source text."
   (:require
-    [instaparse.core :as insta]
-
     [fr.jeremyschoffen.prose.alpha.reader.clojurizer :as clojurizer]
-    [fr.jeremyschoffen.prose.alpha.reader.grammar :as g]
-    [fr.jeremyschoffen.prose.alpha.reader.core.error :as error]))
-
-
-;;----------------------------------------------------------------------------------------------------------------------
-;; Parsing and reading
-;;----------------------------------------------------------------------------------------------------------------------
-
-#_{:clj-kondo/ignore [:unresolved-var]}
-(defn parse
-  "Wrapper around the parser from [[textp.reader.grammar]] adding error handling."
-  [text]
-  (let [parsed (g/parser text)]
-    (when (insta/failure? parsed)
-      (throw (ex-info "Parser failure."
-                      {:type ::error/grammar-error
-                       :failure (insta/get-failure parsed)})))
-    (insta/add-line-and-column-info-to-metadata text parsed)))
+    [fr.jeremyschoffen.prose.alpha.reader.core.error :as error]
+    [fr.jeremyschoffen.prose.alpha.reader.portable :as portable]))
 
 
 (def ^:dynamic *parse-region*
@@ -85,24 +57,22 @@ The different syntactic elements are processed as follows:
 
 (defn read-from-string* [text]
   (try
-    (let [parsed (parse text)]
-      (clojurize parsed))
+    (binding [clojurizer/*reader-options* *reader-options*]
+      (portable/read-from-string text))
     (catch #?@(:clj [Exception e] :cljs [js/Error e])
       (error/handle-read-error e))))
 
 
 (defn read-from-string
-  "
-  The entry point of the reader.
-
-  Args:
-  - `text`: string to read
-  - `opts`: a map specifying options
+  "Reads `text` as Prose syntax and returns evaluator-neutral Clojure data.
 
   Options:
-  - `:reader-options`: The options to pass the clojure reader, it's the map that will be passed to
-    [[edamame.core/parse-string]]. By default every basic option is allowed except `:read-eval`.
-  "
+
+  | key               | description
+  | ----------------- | -----------
+  | `:reader-options` | Edamame options for embedded Clojure; replaces the safe defaults. |
+
+  The defaults support standard Clojure forms and disable `:read-eval`."
   ([text]
    (read-from-string* text))
   ([text opts]
@@ -111,54 +81,6 @@ The different syntactic elements are processed as follows:
 
 
 (defn form->text
-  "Given a form and the original text, finds the part of the text that read as this form."
+  "Returns the exact part of `original` that produced `form`."
   [form original]
-  (if (string? form)
-    form
-    (let [{:keys [start-index end-index]} (-> form meta ::parse-region)]
-      (subs original start-index end-index))))
-
-
-(comment
-  (def ex1
-    "Hello my name is ◊em{Jeremy}{Schoffen}.
-     We can embed code ◊(+ 1 2 3).
-     We can even embed tags in code:
-     ◊(call ◊text{◊em{Me!}})
-
-     Tags ins tags args:
-     ◊toto[:arg1 ◊em{toto} :arg2 2 :arg3 \"arg 3\"].
-
-     The craziest, we can embed ad nauseam:
-
-     ◊(defn template [x]
-        ◊div
-        {
-          the value x: ◊|x
-          the value x++: ◊(inc x)
-        })")
-  (g/parser ex1)
-  (read-from-string ex1)
-
-  (read-from-string "◊div[:a \"stuff]\" :b 1]")
-  (read-from-string "some text ◊(str \"aaa\"\")")
-
-  (read-from-string "◊div{wanted to use the ◊\"}\" char}")
-  (read-from-string "◊◊div{wanted to use the ◊\"}\" char}{in} [there]")
-  (->> (read-from-string "◊◊div{wanted to use the ◊\"}\" char}{in} [there]")
-       first
-       (map meta))
-
-  (read-from-string "◊[ 1 2 3 a]")
-  (read-from-string "◊str◊{some str}")
-  (def ex2
-    "◊code{
-      (defn toto [{:keys [a b c]}]
-        [a b c])
-     }")
-  (g/parser ex2)
-  (-> ex2
-      read-from-string
-      pr-str
-      println))
-
+  (portable/form->text form original))

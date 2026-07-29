@@ -27,7 +27,7 @@
     (catch #?@(:clj [Exception e] :cljs [js/Error e])
       (throw
         (ex-info "Reader failure."
-                 {:type :fr.jeremyschoffen.prose.alpha.reader.core.error/clojure-reader-error
+                 {:type ::clojure-reader-error
                   :text s
                   :region *parse-region*
                   :failure e})))))

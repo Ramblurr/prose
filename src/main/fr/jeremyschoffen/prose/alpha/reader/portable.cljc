@@ -1,5 +1,5 @@
 (ns fr.jeremyschoffen.prose.alpha.reader.portable
-  "Portable replacement path for reading Prose documents."
+  "Scans Prose syntax and converts it to evaluator-neutral Clojure data."
   (:require
     [fr.jeremyschoffen.prose.alpha.reader.clojurizer :as clojurizer]))
 
@@ -26,10 +26,10 @@
   #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9})
 
 (def ^:private clojure-reader-error-type
-  :fr.jeremyschoffen.prose.alpha.reader.core.error/clojure-reader-error)
+  :fr.jeremyschoffen.prose.alpha.reader.clojurizer/clojure-reader-error)
 
 (defn- scanner-error [start-index index expected]
-  (throw (ex-info "Portable parser failure."
+  (throw (ex-info "Prose scanner failure."
                   {:type ::scanner-error
                    :start-index start-index
                    :index index
@@ -87,7 +87,7 @@
     (ex-info (str "Prose reader error at line " (:line location)
                   ", column " (:column location)
                   ": expected " expected ".")
-             (merge {:type ::syntax-error
+             (merge {:type :fr.jeremyschoffen.prose.alpha.reader.core.error/syntax-error
                      :source source
                      :text (subs source start-index end-index)}
                     region
@@ -376,7 +376,7 @@
         (throw (normalized-read-error source line-starts error))))))
 
 (defn read-from-string
-  "Reads portable Prose syntax as evaluator-neutral Clojure data.
+  "Reads `source` as Prose syntax and returns evaluator-neutral Clojure data.
 
   When supplied, `:reader-options` replaces the Edamame options for this read."
   ([source]
