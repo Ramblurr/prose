@@ -3,7 +3,8 @@
     [clojure.string]
     [clojure.test :refer :all]
     [fr.jeremyschoffen.prose.alpha.eval.common :as eval :include-macros true]
-    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]
+    [fr.jeremyschoffen.prose.alpha.reader.portable :as portable]))
 
 
 (def program-1 '[(conj [1 2] 3) (+ 1 2 3)])
@@ -19,6 +20,13 @@
   (is (= ["HELLO"]
          (-> "◊(clojure.string/upper-case \"hello\")"
              reader/read-from-string
+             eval/eval-forms))))
+
+
+(deftest evaluates-portable-reader-output
+  (is (= ["HELLO"]
+         (-> "◊(clojure.string/upper-case \"hello\")"
+             portable/read-from-string
              eval/eval-forms))))
 
 

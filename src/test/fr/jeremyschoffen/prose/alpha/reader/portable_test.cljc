@@ -33,3 +33,34 @@
     "◊|foo/bar/baz" '[foo/bar "/baz"]
     "◊|foo/1bar" '[foo "/1bar"]
     "◊|simple\u00a0after" '[simple "\u00a0after"]))
+
+
+(deftest reads-parenthesized-clojure-forms
+  (are [source expected] (= expected (portable/read-from-string source))
+    "◊(+ 1 (* 2 3))" '[(+ 1 (* 2 3))]
+    "before ◊(vector [1 {:x (inc 1)}]) after"
+    '["before " (vector [1 {:x (inc 1)}]) " after"]))
+
+
+(deftest protects-clojure-strings-while-balancing-parentheses
+  (are [source expected] (= expected (portable/read-from-string source))
+    "◊(str \"closing ) and ◊|plain\" \"escaped: \\\" and \\\\ slash\")"
+    '[(str "closing ) and ◊|plain" "escaped: \" and \\ slash")]
+    "◊(str \"([{}])\")" '[(str "([{}])")]))
+
+
+(deftest restores-supported-prose-commands-inside-clojure
+  (is (= '[(vector some.ns/value (inc 1) 42)]
+         (portable/read-from-string
+           "◊(vector ◊|some.ns/value ◊(inc 1) ◊\"42\")"))))
+
+
+(deftest honors-reader-options-and-safe-defaults
+  (is (= '[((clojure.core/deref state))]
+         (portable/read-from-string "◊(@state)")))
+  (is (= '[(:example.ns/value)]
+         (portable/read-from-string
+           "◊(::alias/value)"
+           {:reader-options {:auto-resolve {'alias 'example.ns}}})))
+  (is (thrown? #?(:clj Exception :cljs js/Error)
+               (portable/read-from-string "◊(#=(+ 1 2))"))))

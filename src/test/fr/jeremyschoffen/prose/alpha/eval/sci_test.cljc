@@ -4,6 +4,7 @@
        :cljs [cljs.test :refer-macros [deftest testing is]])
     [fr.jeremyschoffen.prose.alpha.eval.sci :as sci-eval]
     [fr.jeremyschoffen.prose.alpha.reader.core :as reader]
+    [fr.jeremyschoffen.prose.alpha.reader.portable :as portable]
     [sci.core :as sci]))
 
 (def program-1 '[(conj [1 2] 3) (+ 1 2 3)])
@@ -19,6 +20,13 @@
   (is (= ["HELLO"]
          (-> "◊(clojure.string/upper-case \"hello\")"
              reader/read-from-string
+             sci-eval/eval-forms))))
+
+
+(deftest evaluates-portable-reader-output
+  (is (= ["HELLO"]
+         (-> "◊(clojure.string/upper-case \"hello\")"
+             portable/read-from-string
              sci-eval/eval-forms))))
 
 ;;----------------------------------------------------------------------------------------------------------------------

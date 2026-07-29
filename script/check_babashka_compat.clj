@@ -33,10 +33,18 @@
 
 
 (deftest portable-reader-path
-  (is (= {:forms '["Unicode α\nbefore " some.ns/value " and " "literal ◊ text"]
+  (is (= {:forms '["Unicode α\nbefore "
+                    (vector some.ns/value (inc 1) 42)
+                    " and "
+                    "literal ◊ text"]
+          :reader-options '[(:example.ns/value)]
           :parser-libraries-loaded? false}
          {:forms (portable/read-from-string
-                  "Unicode α\nbefore ◊|some.ns/value and ◊\"literal ◊ text\"")
+                  "Unicode α\nbefore ◊(vector ◊|some.ns/value ◊(inc 1) ◊\"42\") and ◊\"literal ◊ text\"")
+          :reader-options (portable/read-from-string
+                           "◊(::alias/value)"
+                           {:reader-options
+                            {:auto-resolve {'alias 'example.ns}}})
           :parser-libraries-loaded?
           (boolean
            (some (fn [namespace]

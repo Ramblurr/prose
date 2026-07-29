@@ -100,6 +100,52 @@
         (recur (inc i) chunk-start content)))))
 
 
+(defn- clojure-string-end [source start]
+  (loop [i (inc start)]
+    (when (= i (count source))
+      (throw (ex-info "Expected a closing quote." {:index i})))
+    (case (nth source i)
+      \" (inc i)
+      \\ (if (< (inc i) (count source))
+           (recur (+ i 2))
+           (throw (ex-info "Expected a character after an escape." {:index i})))
+      (recur (inc i)))))
+
+
+(declare command-content)
+
+
+(defn- clojure-call-content [source command-start]
+  (loop [i (+ command-start 2)
+         chunk-start (inc command-start)
+         content []
+         depth 1]
+    (when (= i (count source))
+      (throw (ex-info "Expected a closing parenthesis." {:index i})))
+    (case (nth source i)
+      \" (recur (clojure-string-end source i) chunk-start content depth)
+      \◊ (let [[embedded end] (command-content source i)
+               content (cond-> content
+                         (< chunk-start i) (conj (subs source chunk-start i)))]
+           (recur end end (into content embedded) depth))
+      \( (recur (inc i) chunk-start content (inc depth))
+      \) (if (= depth 1)
+           [(cond-> content
+              (< chunk-start (inc i)) (conj (subs source chunk-start (inc i))))
+            (inc i)]
+           (recur (inc i) chunk-start content (dec depth)))
+      (recur (inc i) chunk-start content depth))))
+
+
+(defn- clojure-call-node [source command-start]
+  (let [[content end] (clojure-call-content source command-start)]
+    [(with-meta {:tag :clojure-call
+                 :content content}
+       {:start-index command-start
+        :end-index end})
+     end]))
+
+
 (defn- symbol-node [source command-start]
   (let [start (+ command-start 2)
         end (symbol-end source start)]
@@ -108,6 +154,18 @@
        {:start-index command-start
         :end-index end})
      end]))
+
+
+(defn- command-content [source command-start]
+  (when (= (inc command-start) (count source))
+    (throw (ex-info "Expected a command after ◊." {:index command-start})))
+  (case (nth source (inc command-start))
+    \" (verbatim-content source (+ command-start 2))
+    \( (let [[node end] (clojure-call-node source command-start)]
+         [[node] end])
+    \| (let [[node end] (symbol-node source command-start)]
+         [[node] end])
+    (throw (ex-info "Unsupported portable reader command." {:index command-start}))))
 
 
 (defn- parse [source]
@@ -120,26 +178,21 @@
           {:start-index 0
            :end-index length})
         (if (= special (nth source i))
-          (do
-            (when (= (inc i) length)
-              (throw (ex-info "Expected a command after ◊." {:index i})))
-            (case (nth source (inc i))
-              \"
-              (let [[verbatim end] (verbatim-content source (+ i 2))]
-                (recur (long end) (into content verbatim)))
-
-              \|
-              (let [[node end] (symbol-node source i)]
-                (recur (long end) (conj content node)))
-
-              (throw (ex-info "Unsupported portable reader command." {:index i}))))
+          (let [[embedded end] (command-content source i)]
+            (recur (long end) (into content embedded)))
           (let [end (plain-text-end source i)]
             (recur (long end) (conj content (subs source i end)))))))))
 
 
 (defn read-from-string
-  "Reads document text, verbatim commands, and symbol-use commands as Clojure data."
-  [source]
-  (-> source
-      parse
-      clojurizer/clojurize))
+  "Reads portable Prose syntax as evaluator-neutral Clojure data.
+
+  When supplied, `:reader-options` replaces the Edamame options for this read."
+  ([source]
+   (-> source
+       parse
+       clojurizer/clojurize))
+  ([source opts]
+   (binding [clojurizer/*reader-options*
+             (get opts :reader-options clojurizer/*reader-options*)]
+     (read-from-string source))))
