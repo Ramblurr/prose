@@ -12,3 +12,6 @@ clj-test opts="":
 
 cljs-test opts="":
 	clojure -M:clj:cljs:test -m kaocha.runner unit-cljs {{opts}}
+
+bb-compat-test:
+	bb -Sdeps '{:deps {io.github.jerems/prose {:local/root "."}}}' script/check_babashka_compat.clj

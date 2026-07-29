@@ -1,7 +1,9 @@
 (ns fr.jeremyschoffen.prose.alpha.eval.clojure-test
   (:require
+    [clojure.string]
     [clojure.test :refer :all]
-    [fr.jeremyschoffen.prose.alpha.eval.common :as eval :include-macros true]))
+    [fr.jeremyschoffen.prose.alpha.eval.common :as eval :include-macros true]
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
 
 
 (def program-1 '[(conj [1 2] 3) (+ 1 2 3)])
@@ -12,6 +14,12 @@
   (is (= evaluation-1
          [(conj [1 2] 3)
           (+ 1 2 3)])))
+
+(deftest evaluates-reader-output
+  (is (= ["HELLO"]
+         (-> "◊(clojure.string/upper-case \"hello\")"
+             reader/read-from-string
+             eval/eval-forms))))
 
 
 ;;----------------------------------------------------------------------------------------------------------------------
