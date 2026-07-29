@@ -107,3 +107,199 @@
            (div {:class (str "c1 c2")} " " (def x 1) " " (def y 2) " ")]
          (portable/read-from-string
            "Some text. ◊div[{:class ◊str{c1 c2}}] { ◊def[x 1] ◊(def y 2) }"))))
+
+(defn form-region [form]
+  (-> form
+      meta
+      :fr.jeremyschoffen.prose.alpha.reader.core/parse-region))
+
+(defn read-error [source]
+  (try
+    (portable/read-from-string source)
+    (catch #?@(:clj [Exception e] :cljs [js/Error e])
+      e)))
+
+(defn error-summary [source]
+  (-> (read-error source)
+      ex-data
+      (select-keys [:text :index :line :column :expected])))
+
+(deftest attaches-half-open-source-regions-and-positions
+  (let [source "first\n◊outer[1]{body\n  ◊inner{x}} and ◊(+ 1 2)"
+        document (portable/read-from-string source)
+        outer (second document)
+        inner (nth outer 3)
+        clojure-call (nth document 3)]
+    (is (= {:document {:start-index 0
+                       :end-index 46
+                       :start-line 1
+                       :start-column 1
+                       :end-line 3
+                       :end-column 26}
+            :outer {:start-index 6
+                    :end-index 33
+                    :start-line 2
+                    :start-column 1
+                    :end-line 3
+                    :end-column 13}
+            :inner {:start-index 23
+                    :end-index 32
+                    :start-line 3
+                    :start-column 3
+                    :end-line 3
+                    :end-column 12}
+            :clojure-call {:start-index 38
+                           :end-index 46
+                           :start-line 3
+                           :start-column 18
+                           :end-line 3
+                           :end-column 26}}
+           {:document (form-region document)
+            :outer (form-region outer)
+            :inner (form-region inner)
+            :clojure-call (form-region clojure-call)}))))
+
+(deftest attaches-regions-to-each-non-text-node-category
+  (let [document (portable/read-from-string
+                   "pre\n◊|value ◊◊group[1]{body ◊inner{x}}")
+        symbol (second document)
+        command (nth document 3)
+        name-form (first command)
+        square-argument (second command)
+        text-argument (nth command 2)
+        inner (second text-argument)
+        indexes #(select-keys (form-region %)
+                              [:start-index :end-index])]
+    (is (= {:symbol {:start-index 4 :end-index 11}
+            :unspliced-command {:start-index 12 :end-index 38}
+            :name {:start-index 14 :end-index 19}
+            :square-argument {:start-index 19 :end-index 22}
+            :text-argument {:start-index 22 :end-index 38}
+            :nested-command {:start-index 28 :end-index 37}}
+           {:symbol (indexes symbol)
+            :unspliced-command (indexes command)
+            :name (indexes name-form)
+            :square-argument (indexes square-argument)
+            :text-argument (indexes text-argument)
+            :nested-command (indexes inner)}))))
+
+(deftest recovers-exact-source-at-every-nesting-level
+  (let [source "pre\n◊◊group[1]{body ◊inner{x}}"
+        document (portable/read-from-string source)
+        command (second document)
+        name-form (first command)
+        square-argument (second command)
+        text-argument (nth command 2)
+        inner (second text-argument)]
+    (is (= {:document source
+            :command "◊◊group[1]{body ◊inner{x}}"
+            :name "group"
+            :square-argument "[1]"
+            :text-argument "{body ◊inner{x}}"
+            :inner "◊inner{x}"}
+           {:document (portable/form->text document source)
+            :command (portable/form->text command source)
+            :name (portable/form->text name-form source)
+            :square-argument (portable/form->text square-argument source)
+            :text-argument (portable/form->text text-argument source)
+            :inner (portable/form->text inner source)}))))
+
+(deftest owns-normalized-error-data
+  (let [source "line one\nbefore ◊"
+        error (read-error source)
+        data (ex-data error)]
+    (is (= {:type :fr.jeremyschoffen.prose.alpha.reader.portable/syntax-error
+            :source source
+            :text "◊"
+            :start-index 16
+            :end-index 17
+            :start-line 2
+            :start-column 8
+            :end-line 2
+            :end-column 9
+            :index 17
+            :line 2
+            :column 9
+            :expected "a command"}
+           data))
+    (is (= "Prose reader error at line 2, column 9: expected a command."
+           (ex-message error)))
+    (is (not (re-find #"instaparse" (pr-str data))))))
+
+(deftest normalizes-malformed-input-categories
+  (are [source expected] (= expected (error-summary source))
+    "line one\nbefore ◊"
+    {:text "◊"
+     :index 17
+     :line 2
+     :column 9
+     :expected "a command"}
+
+    "line one\nbefore ◊[1]"
+    {:text "◊["
+     :index 17
+     :line 2
+     :column 9
+     :expected "a command name"}
+
+    "line one\nbefore ◊|["
+    {:text "◊|["
+     :index 18
+     :line 2
+     :column 10
+     :expected "a symbol"}
+
+    "line one\nbefore ◊\"abc"
+    {:text "◊\"abc"
+     :index 21
+     :line 2
+     :column 13
+     :expected "\""}
+
+    "line one\nbefore ◊(str \"abc)"
+    {:text "◊(str \"abc)"
+     :index 27
+     :line 2
+     :column 19
+     :expected "\""}
+
+    "line one\nbefore ◊(inc 1"
+    {:text "◊(inc 1"
+     :index 23
+     :line 2
+     :column 15
+     :expected ")"}
+
+    "line one\nbefore ◊tag[1"
+    {:text "[1"
+     :index 22
+     :line 2
+     :column 14
+     :expected "]"}
+
+    "line one\nbefore ◊tag{body"
+    {:text "{body"
+     :index 25
+     :line 2
+     :column 17
+     :expected "}"}
+
+    "line one\nbefore ◊(#unknown/tag 1)"
+    {:text "◊(#unknown/tag 1)"
+     :index 16
+     :line 2
+     :column 8
+     :expected "valid Clojure syntax"}))
+
+(deftest reads-a-large-mixed-document
+  (let [repetitions 1000
+        chunk "text\n◊outer[1]{body ◊inner{x}} ◊(+ 1 2)\n"
+        source (apply str (repeat repetitions chunk))
+        forms (portable/read-from-string source)]
+    (is (= {:form-count (inc (* 4 repetitions))
+            :last-command "◊(+ 1 2)"
+            :document-length (count source)}
+           {:form-count (count forms)
+            :last-command (portable/form->text (nth forms (- (count forms) 2))
+                                               source)
+            :document-length (-> forms form-region :end-index)}))))
