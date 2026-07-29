@@ -115,30 +115,49 @@
 (declare command-content)
 
 
-(defn- clojure-call-content [source command-start]
-  (loop [i (+ command-start 2)
-         chunk-start (inc command-start)
-         content []
-         depth 1]
-    (when (= i (count source))
-      (throw (ex-info "Expected a closing parenthesis." {:index i})))
-    (case (nth source i)
-      \" (recur (clojure-string-end source i) chunk-start content depth)
-      \◊ (let [[embedded end] (command-content source i)
-               content (cond-> content
-                         (< chunk-start i) (conj (subs source chunk-start i)))]
-           (recur end end (into content embedded) depth))
-      \( (recur (inc i) chunk-start content (inc depth))
-      \) (if (= depth 1)
-           [(cond-> content
-              (< chunk-start (inc i)) (conj (subs source chunk-start (inc i))))
-            (inc i)]
-           (recur (inc i) chunk-start content (dec depth)))
-      (recur (inc i) chunk-start content depth))))
+(defn- delimited-content [source start closing string-protected?]
+  (let [opening (nth source start)]
+    (loop [i (inc start)
+           chunk-start (inc start)
+           content [(str opening)]
+           depth 1]
+      (when (= i (count source))
+        (throw (ex-info "Expected a closing delimiter."
+                        {:index i
+                         :expected closing})))
+      (let [ch (nth source i)]
+        (cond
+          (and string-protected? (= ch double-quote))
+          (recur (clojure-string-end source i) chunk-start content depth)
+
+          (= ch special)
+          (let [[embedded end] (command-content source i)
+                content (cond-> content
+                          (< chunk-start i) (conj (subs source chunk-start i)))]
+            (recur end end (into content embedded) depth))
+
+          (= ch opening)
+          (recur (inc i)
+                 (inc i)
+                 (cond-> content
+                   (< chunk-start i) (conj (subs source chunk-start i))
+                   true (conj (str opening)))
+                 (inc depth))
+
+          (= ch closing)
+          (let [content (cond-> content
+                          (< chunk-start i) (conj (subs source chunk-start i))
+                          true (conj (str closing)))]
+            (if (= depth 1)
+              [content (inc i)]
+              (recur (inc i) (inc i) content (dec depth))))
+
+          :else
+          (recur (inc i) chunk-start content depth))))))
 
 
 (defn- clojure-call-node [source command-start]
-  (let [[content end] (clojure-call-content source command-start)]
+  (let [[content end] (delimited-content source (inc command-start) \) true)]
     [(with-meta {:tag :clojure-call
                  :content content}
        {:start-index command-start
@@ -156,6 +175,45 @@
      end]))
 
 
+(defn- tag-argument-node [source start]
+  (let [[tag closing string-protected?]
+        (case (nth source start)
+          \[ [:tag-clj-arg \] true]
+          \{ [:tag-text-arg \} false])
+        [content end] (delimited-content source start closing string-protected?)]
+    [(with-meta {:tag tag
+                 :content content}
+       {:start-index start
+        :end-index end})
+     end]))
+
+
+(defn- named-command-node [source command-start unspliced?]
+  (let [name-start (+ command-start (if unspliced? 2 1))
+        name-end (symbol-end source name-start)
+        name-node (with-meta {:tag :tag-name
+                              :content [(subs source name-start name-end)]}
+                    {:start-index name-start
+                     :end-index name-end})]
+    (loop [i name-end
+           content [name-node]]
+      (let [argument-start
+            (loop [j i]
+              (if (and (< j (count source))
+                       (whitespace? (nth source j)))
+                (recur (inc j))
+                j))]
+        (if (and (< argument-start (count source))
+                 (contains? #{\[ \{} (nth source argument-start)))
+          (let [[argument end] (tag-argument-node source argument-start)]
+            (recur end (conj content argument)))
+          [(with-meta {:tag (if unspliced? :tag-unspliced :tag)
+                       :content content}
+             {:start-index command-start
+              :end-index i})
+           i])))))
+
+
 (defn- command-content [source command-start]
   (when (= (inc command-start) (count source))
     (throw (ex-info "Expected a command after ◊." {:index command-start})))
@@ -165,7 +223,10 @@
          [[node] end])
     \| (let [[node end] (symbol-node source command-start)]
          [[node] end])
-    (throw (ex-info "Unsupported portable reader command." {:index command-start}))))
+    \◊ (let [[node end] (named-command-node source command-start true)]
+         [[node] end])
+    (let [[node end] (named-command-node source command-start false)]
+      [[node] end])))
 
 
 (defn- parse [source]

@@ -37,10 +37,16 @@
                     (vector some.ns/value (inc 1) 42)
                     " and "
                     "literal ◊ text"]
+          :named-forms '["Some text. "
+                         (div {:class (str "c1 c2")}
+                              " " (def x 1) " " (def y 2) " ")]
           :reader-options '[(:example.ns/value)]
           :parser-libraries-loaded? false}
          {:forms (portable/read-from-string
                   "Unicode α\nbefore ◊(vector ◊|some.ns/value ◊(inc 1) ◊\"42\") and ◊\"literal ◊ text\"")
+          :named-forms
+          (portable/read-from-string
+           "Some text. ◊div[{:class ◊str{c1 c2}}] { ◊def[x 1] ◊(def y 2) }")
           :reader-options (portable/read-from-string
                            "◊(::alias/value)"
                            {:reader-options
