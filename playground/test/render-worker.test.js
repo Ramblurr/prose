@@ -105,3 +105,36 @@ test("forks fresh restricted evaluation state for every Render", async (t) => {
     },
   );
 });
+
+test("blocks indirect worker-global and network recovery", async (t) => {
+  const worker = await readyWorker(t);
+  const globalAccess = await render(
+    worker,
+    7,
+    `◊(let [object (js-obj)
+        constructor (aget object "constructor")
+        Function (aget constructor "constructor")
+        global ((Function "return globalThis"))]
+    (aget (aget global "process") "version"))`,
+  );
+  const indirectNetworkAccess = await render(
+    worker,
+    8,
+    `◊(let [object (js-obj)
+        constructor (aget object "constructor")
+        Function (aget constructor "constructor")
+        global ((Function "return globalThis"))]
+    (boolean (aget global "fetch")))`,
+  );
+
+  assert.deepEqual(
+    [globalAccess, indirectNetworkAccess].map(({ diagnostic, type }) => ({
+      phase: diagnostic?.phase,
+      type,
+    })),
+    [
+      { phase: "playground-evaluate", type: "failed" },
+      { phase: "playground-evaluate", type: "failed" },
+    ],
+  );
+});

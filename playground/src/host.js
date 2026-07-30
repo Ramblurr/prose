@@ -2,6 +2,7 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { load } from "@starfederation/datastar/bundles/datastar";
 import { PluginType } from "@starfederation/datastar/types";
+import { renderOutcome } from "./render-controller.js";
 import { readinessState, renderRequest } from "./protocol.js";
 
 const stateEvent = "prose-playground-state";
@@ -33,8 +34,21 @@ function publish(detail) {
   document.dispatchEvent(new CustomEvent(stateEvent, { detail }));
 }
 
+function previewProjection(html) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  for (const link of template.content.querySelectorAll("a, area")) {
+    link.removeAttribute("href");
+    link.removeAttribute("xlink:href");
+  }
+  for (const refresh of template.content.querySelectorAll("meta[http-equiv]")) {
+    if (refresh.httpEquiv.toLowerCase() === "refresh") refresh.remove();
+  }
+  return template.innerHTML;
+}
+
 function previewDocument(html) {
-  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"></head><body>${html}</body></html>`;
+  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"></head><body>${previewProjection(html)}</body></html>`;
 }
 
 function showFailure(phase, message) {
@@ -95,21 +109,10 @@ worker.addEventListener("message", ({ data }) => {
     showFailure("Initialization", "The worker uses an incompatible protocol version.");
     return;
   }
-  if (data?.requestId !== currentRequestId) return;
-
-  if (data.type === "rendered" && data.protocol === 1) {
-    preview.srcdoc = previewDocument(data.html);
-    publish({
-      diagnosticMessage: "",
-      evaluatedResult: data.evaluated,
-      htmlResult: data.html,
-      readerResult: data.reader,
-      renderStatus: "Rendered",
-      workerStatusDetail: `Rendered request ${data.requestId}.`,
-    });
-  } else if (data.type === "failed" && data.protocol === 1) {
-    const phase = data.diagnostic?.phase ?? "render";
-    showFailure(phase, data.diagnostic?.message ?? "Render failed.");
+  const outcome = renderOutcome(data, currentRequestId);
+  if (outcome) {
+    preview.srcdoc = previewDocument(outcome.previewHtml);
+    publish(outcome.signals);
   }
 });
 worker.addEventListener("error", () => {

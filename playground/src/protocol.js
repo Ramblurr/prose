@@ -16,3 +16,8 @@ export function renderRequest(requestId, source) {
     },
   };
 }
+
+export function currentRenderResponse(message, requestId) {
+  if (message?.protocol !== protocolVersion || message.requestId !== requestId) return null;
+  return message.type === "rendered" || message.type === "failed" ? message : null;
+}
