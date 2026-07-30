@@ -5,7 +5,7 @@ to compile to html.
 "}
   fr.jeremyschoffen.prose.alpha.out.html.compiler
   (:require
-    [fr.jeremyschoffen.prose.alpha.compilation.core :as common :refer [emit! emit-seq!]]
+    [fr.jeremyschoffen.prose.alpha.compilation.core :as common :refer [emit! emit-seq!] :include-macros true]
     [fr.jeremyschoffen.prose.alpha.out.html.tags :as tags]))
 
 

@@ -1,0 +1,7 @@
+◊(require '[fr.jeremyschoffen.prose.alpha.document.lib :refer [def-s]])
+
+◊(def-s language "Prose")
+
+Hello from ◊|language — where text and code meet.
+
+Two plus three is ◊(+ 2 3).

@@ -15,4 +15,4 @@ just playground-build
 just playground-serve
 ```
 
-The server listens on <http://localhost:8000>. The build does not install dependencies. Run `just playground-check` to execute the deterministic shell tests and a clean production build.
+The server listens on <http://localhost:8000>. The build does not install dependencies. Run `just playground-check` to execute the deterministic protocol and Render-worker tests against a clean production build. The default source is copied verbatim from `examples/01-text-and-code.prose`.

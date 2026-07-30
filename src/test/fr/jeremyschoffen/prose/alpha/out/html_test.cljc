@@ -17,7 +17,7 @@
                  (tags/li i)))))])
 
 
-(deftest ex-test
-  (is (= (cplr/compile! ex)
-         "<!DOCTYPE html>\n<html><head></head><body class=\"a b c\">Some text<ul><li>0</li><li>1</li><li>2</li></ul></body></html>")))
+(deftest html-tag-and-compiler-portability
+  (is (= "<!DOCTYPE html>\n<html><head></head><body class=\"a b c\">Some text<ul><li>0</li><li>1</li><li>2</li></ul></body></html>"
+         (cplr/compile! ex))))
 

@@ -23,9 +23,9 @@ playground-serve:
 	python3 -m http.server --directory playground/dist 8000
 
 playground-check:
-	cd playground && pnpm run check
 	mkdir -p playground/dist && printf stale > playground/dist/stale-output
 	just playground-build
 	node playground/scripts/check-artifact.mjs
+	cd playground && pnpm run check
 
 test: clj-test cljs-test bb-compat-test playground-check

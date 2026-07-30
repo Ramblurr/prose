@@ -12,10 +12,12 @@ body {
   min-height: 100vh;
 }
 
+button,
+input { font: inherit; }
+
 button {
   border: 1px solid #77756b;
   border-radius: 0.4rem;
-  font: inherit;
   padding: 0.5rem 0.8rem;
 }
 
@@ -36,10 +38,12 @@ button:disabled { opacity: 0.55; }
 
 h1,
 h2,
+h3,
 p { margin: 0; }
 
 h1 { font-size: 1.35rem; }
-h2 { font-size: 1rem; }
+h2 { font-size: 1.1rem; }
+h3 { font-size: 0.9rem; }
 
 .eyebrow {
   color: #68665d;
@@ -53,6 +57,12 @@ h2 { font-size: 1rem; }
   align-items: center;
   display: flex;
   gap: 0.8rem;
+}
+
+.auto-control {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
 }
 
 .worker-status {
@@ -87,37 +97,122 @@ h2 { font-size: 1rem; }
 }
 
 .pane-heading { min-height: 3rem; }
+.editor-section { margin-top: 1rem; }
 
 .editor-shell,
-.preview-shell {
-  align-items: center;
+.result-shell {
   border: 1px solid #d4d1c6;
   border-radius: 0.5rem;
-  color: #68665d;
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   min-height: 28rem;
-  padding: 2rem;
-  text-align: center;
+  overflow: auto;
 }
 
 .editor-shell {
   background: #23241f;
-  color: #d9d8cf;
-  font-family: ui-monospace, monospace;
+  color: #e8e6dd;
 }
+
+.editor-shell .cm-editor { min-height: 28rem; }
+.editor-shell .cm-scroller { font-family: ui-monospace, monospace; }
+.editor-shell .cm-gutters {
+  background: #292a25;
+  border-right-color: #44463f;
+  color: #96978e;
+}
+.editor-shell .cm-activeLine,
+.editor-shell .cm-activeLineGutter { background: #30312c; }
+
+.editor-hint,
+.status-detail {
+  color: #68665d;
+  font-size: 0.78rem;
+  margin-top: 0.55rem;
+}
+
+kbd {
+  border: 1px solid #aaa79d;
+  border-radius: 0.2rem;
+  font: inherit;
+  padding: 0.05rem 0.2rem;
+}
+
+.diagnostic {
+  background: #fff0ed;
+  border: 1px solid #d99a91;
+  border-radius: 0.4rem;
+  color: #742a22;
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.8rem;
+  padding: 0.75rem;
+}
+
+.result-heading { gap: 1rem; }
+.render-status { color: #68665d; font-size: 0.8rem; }
+
+.result-choices {
+  border: 0;
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.result-choices legend {
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.result-choices label {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.result-shell > section { min-height: 28rem; }
+.result-shell iframe {
+  border: 0;
+  display: block;
+  min-height: 28rem;
+  width: 100%;
+}
+
+.result-shell pre {
+  font: 0.85rem/1.5 ui-monospace, monospace;
+  margin: 0;
+  min-height: 28rem;
+  overflow-wrap: anywhere;
+  padding: 1rem;
+  white-space: pre-wrap;
+}
+
+[hidden] { display: none !important; }
 
 @media (max-width: 720px) {
   .workspace { grid-template-columns: 1fr; }
   .app-header { align-items: flex-start; }
-  .actions { align-items: flex-end; flex-direction: column-reverse; }
-  .editor-shell, .preview-shell { min-height: 20rem; }
+  .actions { align-items: flex-end; flex-wrap: wrap; justify-content: flex-end; }
+  .editor-shell,
+  .editor-shell .cm-editor,
+  .result-shell,
+  .result-shell > section,
+  .result-shell iframe,
+  .result-shell pre { min-height: 20rem; }
+  .result-choices { flex-wrap: wrap; }
 }
 
 @media (prefers-color-scheme: dark) {
   :root { background: #191a17; color: #e8e6dd; }
   .app-header { border-color: #3b3d37; }
   .pane { background: #22231f; }
-  .editor-shell, .preview-shell { border-color: #474940; }
+  .editor-shell,
+  .result-shell { border-color: #474940; }
+  .diagnostic { background: #3d211e; border-color: #8a4b44; color: #ffd8d3; }
+  .eyebrow,
+  .editor-hint,
+  .render-status,
+  .status-detail { color: #aaa99f; }
 }

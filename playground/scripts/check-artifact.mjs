@@ -9,6 +9,7 @@ const required = [
   "assets/styles.css",
   "assets/host.js",
   "assets/worker.js",
+  "examples/01-text-and-code.prose",
 ];
 
 function localAsset(reference, base) {
@@ -47,6 +48,11 @@ for (const path of required) {
   await access(file);
   assert.ok((await stat(file)).size > 0, `${path} must not be empty`);
 }
+
+assert.equal(
+  await readFile(new URL("examples/01-text-and-code.prose", dist), "utf8"),
+  await readFile(new URL("../../examples/01-text-and-code.prose", import.meta.url), "utf8"),
+);
 
 const html = await readFile(new URL("index.html", dist), "utf8");
 for (const match of html.matchAll(/(?:src|href)=["']([^"']+)/g)) {

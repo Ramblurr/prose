@@ -1,0 +1,107 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { Worker } from "node:worker_threads";
+import { renderRequest } from "../src/protocol.js";
+
+const defaultExample = await readFile(
+  new URL("../../examples/01-text-and-code.prose", import.meta.url),
+  "utf8",
+);
+
+function nextMessage(worker) {
+  return new Promise((resolve, reject) => {
+    let timer;
+    const cleanup = () => {
+      clearTimeout(timer);
+      worker.off("error", rejectMessage);
+      worker.off("message", resolveMessage);
+    };
+    const rejectMessage = (error) => {
+      cleanup();
+      reject(error);
+    };
+    const resolveMessage = (message) => {
+      cleanup();
+      resolve(message);
+    };
+    timer = setTimeout(() => rejectMessage(new Error("Timed out waiting for worker message.")), 5000);
+    worker.once("error", rejectMessage);
+    worker.once("message", resolveMessage);
+  });
+}
+
+async function readyWorker(t) {
+  const worker = new Worker(new URL("./fixtures/worker-runner.mjs", import.meta.url));
+  t.after(() => worker.terminate());
+  assert.deepEqual(await nextMessage(worker), { type: "ready", protocol: 1 });
+  return worker;
+}
+
+async function render(worker, requestId, source) {
+  worker.postMessage(renderRequest(requestId, source));
+  return nextMessage(worker);
+}
+
+test("renders the canonical Text and code Example through the production worker", async (t) => {
+  const worker = await readyWorker(t);
+
+  assert.deepEqual(await render(worker, 1, defaultExample), {
+    type: "rendered",
+    protocol: 1,
+    requestId: 1,
+    reader: '[(require (quote [fr.jeremyschoffen.prose.alpha.document.lib :refer [def-s]])) "\\n\\n" (def-s language "Prose") "\\n\\nHello from " language " — where text and code meet.\\n\\nTwo plus three is " (+ 2 3) ".\\n"]',
+    evaluated: '[nil "\\n\\n" "" "\\n\\nHello from " "Prose" " — where text and code meet.\\n\\nTwo plus three is " 5 ".\\n"]',
+    html: "\n\n\n\nHello from Prose — where text and code meet.\n\nTwo plus three is 5.\n",
+  });
+});
+
+test("forks fresh restricted evaluation state for every Render", async (t) => {
+  const worker = await readyWorker(t);
+  const defined = await render(
+    worker,
+    2,
+    `◊(require '[fr.jeremyschoffen.prose.alpha.document.lib :refer [def-s]])
+
+◊(def-s render-secret "private")
+
+◊|render-secret`,
+  );
+  const nextRender = await render(worker, 3, "◊|render-secret");
+  const browserAccess = await render(worker, 4, "◊js/document");
+  const networkAccess = await render(worker, 5, "◊js/fetch");
+  const dependencyAccess = await render(
+    worker,
+    6,
+    "◊(require '[cljs.core.async :as async])",
+  );
+
+  assert.deepEqual(
+    {
+      browserAccess: {
+        phase: browserAccess.diagnostic?.phase,
+        type: browserAccess.type,
+      },
+      defined: defined.type,
+      dependencyAccess: {
+        phase: dependencyAccess.diagnostic?.phase,
+        type: dependencyAccess.type,
+      },
+      networkAccess: {
+        phase: networkAccess.diagnostic?.phase,
+        type: networkAccess.type,
+      },
+      nextRender: {
+        phase: nextRender.diagnostic?.phase,
+        type: nextRender.type,
+      },
+    },
+    {
+      browserAccess: { phase: "playground-evaluate", type: "failed" },
+      defined: "rendered",
+      dependencyAccess: { phase: "playground-evaluate", type: "failed" },
+      networkAccess: { phase: "playground-evaluate", type: "failed" },
+      nextRender: { phase: "playground-evaluate", type: "failed" },
+    },
+  );
+});

@@ -6,7 +6,7 @@ Api containing constructor functions for html tags.
   (:refer-clojure
     :exclude [map meta time var comment mask])
   (:require
-    [fr.jeremyschoffen.prose.alpha.document.lib :as lib]))
+    [fr.jeremyschoffen.prose.alpha.document.lib :as lib :include-macros true]))
 
 
 

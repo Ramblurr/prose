@@ -20,14 +20,24 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
       private: packageJson.private,
     },
     {
-      dependencies: { "@starfederation/datastar": "1.0.0-beta.11" },
+      dependencies: {
+        "@codemirror/commands": "6.10.4",
+        "@codemirror/view": "6.43.6",
+        "@starfederation/datastar": "1.0.0-beta.11",
+      },
       devDependencies: { esbuild: "0.28.1" },
       private: true,
     },
   );
   assert.match(deps, /io\.github\.jerems\/prose \{:local\/root "\.\."\}/);
-  assert.match(lock, /'@starfederation\/datastar@1\.0\.0-beta\.11'/);
-  assert.match(lock, /esbuild@0\.28\.1/);
+  const lockPins = [
+    "'@codemirror/commands@6.10.4'",
+    "'@codemirror/state@6.7.1'",
+    "'@codemirror/view@6.43.6'",
+    "'@starfederation/datastar@1.0.0-beta.11'",
+    "esbuild@0.28.1",
+  ];
+  assert.deepEqual(lockPins.filter((pin) => !lock.includes(pin)), []);
 });
 
 test("documents a script-disabled frozen install", async () => {
