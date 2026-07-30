@@ -2,43 +2,147 @@
       :doc "
 API providing evaluation tools to evaluate documents using Clojure's environment.
 "}
-  fr.jeremyschoffen.prose.alpha.document.clojure
+ fr.jeremyschoffen.prose.alpha.document.clojure
   (:require
-    [clojure.java.io :as io]
-    [fr.jeremyschoffen.prose.alpha.document.common.evaluator :as evaluator]
-    [fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]
-    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
-
+   [clojure.java.io :as io]
+   [fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]
+   [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
 
 (defn default-slurp-doc
-  "Similar to `clojure.core/slurp` except that the provided `path` will be treated as a java resource."
+  "Reads the resource at `path` and returns its contents."
   [path]
   (-> path
       io/resource
       slurp))
 
-
 (def default-env
-  "A map of the default functions to use with [[fr.jeremyschoffen.prose.alpha.document.common.evaluator/make]].
-
-  Namely:
-  - `:slurp-doc`: [[default-slurp-doc]]
-  - `:read-doc`: [[fr.jeremyschoffen.prose.alpha.reader.core/read-from-string]]
-  - `:eval-forms`: [[fr.jeremyschoffen.prose.alpha.eval.common/eval-forms-in-temp-ns]]
-  "
+  "Default configuration for [[make-evaluator]]."
   {:slurp-doc default-slurp-doc
    :read-doc reader/read-from-string
+   :eval-form eval
    :eval-forms eval-common/eval-forms-in-temp-ns})
 
+(defn- ensure-namespace [namespace-symbol]
+  (or (find-ns namespace-symbol)
+      (let [namespace (create-ns namespace-symbol)]
+        (binding [*ns* namespace]
+          (refer 'clojure.core))
+        namespace)))
+
+(defn- reader-context [hidden-namespace]
+  (cond-> {:aliases (into {}
+                          (map (fn [[alias namespace]]
+                                 [alias (ns-name namespace)]))
+                          (ns-aliases *ns*))}
+    (not (identical? hidden-namespace *ns*))
+    (assoc :current (ns-name *ns*))))
+
+(defn- evaluation-error [source progress form error]
+  (ex-info "Error during document evaluation."
+           (merge {:phase :evaluation
+                   :source source
+                   :text (reader/form->text form source)
+                   :form form
+                   :source-region
+                   (-> form
+                       meta
+                       :fr.jeremyschoffen.prose.alpha.reader.core/parse-region)}
+                  @progress)
+           error))
+
+(defn- read-error [error progress]
+  (let [data (ex-data error)]
+    (ex-info (ex-message error)
+             (merge data
+                    {:phase (or (:phase data) :read)}
+                    @progress)
+             error)))
+
+(defn- evaluate-source [source eval-form initial-ns]
+  (let [temporary-symbol (when-not initial-ns
+                           (gensym "prose.alpha.document.temp-"))
+        active-namespace (ensure-namespace (or initial-ns temporary-symbol))
+        hidden-namespace (when temporary-symbol active-namespace)]
+    (try
+      (binding [*ns* active-namespace]
+        (let [progress (volatile! {:forms [] :document []})]
+          (try
+            (-> (reader/reduce-top-level
+                 source
+                 {:reader-context #(reader-context hidden-namespace)}
+                 (fn [state form]
+                   (let [state (update state :forms conj form)]
+                     (vreset! progress state)
+                     (try
+                       (let [state (update state :document conj (eval-form form))]
+                         (vreset! progress state)
+                         state)
+                       (catch Exception error
+                         (throw (evaluation-error source progress form error))))))
+                 @progress)
+                :result)
+            (catch Exception error
+              (if (= :evaluation (:phase (ex-data error)))
+                (throw error)
+                (throw (read-error error progress)))))))
+      (finally
+        (when (and temporary-symbol (find-ns temporary-symbol))
+          (remove-ns temporary-symbol))))))
+
+(defn- evaluate-document*
+  [{:keys [slurp-doc read-doc eval-form eval-forms]} path input opts]
+  (eval-common/bind-env
+   {:prose.alpha.document/path path
+    :prose.alpha.document/input input
+    :prose.alpha.document/slurp-doc slurp-doc
+    :prose.alpha.document/read-doc read-doc
+    :prose.alpha.document/eval-forms eval-forms}
+   (evaluate-source (slurp-doc path) eval-form (:initial-ns opts))))
+
+(defn evaluate-document
+  "Evaluates the document at `path` one top-level item at a time.
+
+  Each item is read using namespace state produced by earlier evaluation.
+  Returns exactly `:forms` and `:document`. Evaluation performs real effects.
+  `input` remains document data and is not interpreted as control options.
+
+  Options:
+
+  | key           | description
+  | ------------- | -----------
+  | `:initial-ns` | Namespace symbol used for initial reading and evaluation. |"
+  ([path]
+   (evaluate-document path {} {}))
+  ([path input]
+   (evaluate-document path input {}))
+  ([path input opts]
+   (evaluate-document* default-env path input opts)))
 
 (defn make-evaluator
-  "Simillar to [[fr.jeremyschoffen.prose.alpha.document.common.evaluator/make]] with
-  [[default-env]] used as a default."
+  "Creates a configured [[evaluate-document]] function.
+
+  Configuration:
+
+  | key           | description
+  | ------------- | -----------
+  | `:slurp-doc`  | Function that returns source text for a path. |
+  | `:eval-form`  | Trusted function that evaluates one form. |
+  | `:read-doc`   | Reader made available to included documents. |
+  | `:eval-forms` | Evaluator made available to included documents. |
+
+  The returned function accepts `path`, optional document `input`, and optional
+  document options as separate arguments."
   ([]
    (make-evaluator {}))
   ([env]
-   (evaluator/make (merge default-env env))))
-
+   (let [env (merge default-env env)]
+     (fn evaluate-document
+       ([path]
+        (evaluate-document* env path {} {}))
+       ([path input]
+        (evaluate-document* env path input {}))
+       ([path input opts]
+        (evaluate-document* env path input opts))))))
 
 (comment
   (def eval-doc (make-evaluator))

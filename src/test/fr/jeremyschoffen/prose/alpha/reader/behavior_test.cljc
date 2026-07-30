@@ -269,6 +269,7 @@
         error (read-error source)
         data (ex-data error)]
     (is (= {:type :fr.jeremyschoffen.prose.alpha.reader.core.error/syntax-error
+            :phase :structural-scan
             :source source
             :text "◊"
             :start-index 16

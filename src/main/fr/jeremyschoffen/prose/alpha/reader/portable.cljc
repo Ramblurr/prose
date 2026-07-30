@@ -79,7 +79,7 @@
              (source-region line-starts start-index end-index)))))
 
 (defn- syntax-error
-  [source line-starts {:keys [start-index end-index index expected cause]}]
+  [source line-starts {:keys [start-index end-index index expected cause phase]}]
   (let [end-index (or end-index
                       (if (< index (count source)) (inc index) index))
         location (source-position line-starts index)
@@ -88,6 +88,7 @@
                   ", column " (:column location)
                   ": expected " expected ".")
              (merge {:type :fr.jeremyschoffen.prose.alpha.reader.core.error/syntax-error
+                     :phase phase
                      :source source
                      :text (subs source start-index end-index)}
                     region
@@ -106,6 +107,7 @@
                     {:start-index start-index
                      :index index
                      :expected expected
+                     :phase :structural-scan
                      :cause error})
 
       (= type clojure-reader-error-type)
@@ -116,6 +118,7 @@
                      :index (:start-index region)
                      :expected (or (-> failure ex-data :edamame/expected-delimiter)
                                    "valid Clojure syntax")
+                     :phase :read
                      :cause error})
 
       :else
