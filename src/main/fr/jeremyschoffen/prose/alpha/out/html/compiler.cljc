@@ -5,6 +5,7 @@ to compile to html.
 "}
   fr.jeremyschoffen.prose.alpha.out.html.compiler
   (:require
+    [clojure.string :as str]
     [fr.jeremyschoffen.prose.alpha.compilation.core :as common :refer [emit! emit-seq!] :include-macros true]
     [fr.jeremyschoffen.prose.alpha.out.html.tags :as tags]))
 
@@ -17,12 +18,18 @@ to compile to html.
 (defn xml-str
   "Like clojure.core/str but escapes < > and &."
   [x]
-  (-> x str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;")))
+  (-> x
+      str
+      (str/replace "&" "&amp;")
+      (str/replace "<" "&lt;")
+      (str/replace ">" "&gt;")))
 
 (defn attr-str
   "Like clojure.core/str but escapes < > & and \"."
   [x]
-  (-> x str (.replace "&" "&amp;") (.replace "<" "&lt;") (.replace ">" "&gt;") (.replace "\"" "&quot;")))
+  (-> x
+      xml-str
+      (str/replace "\"" "&quot;")))
 ;;----------------------------------------------------------------------------------------------------------------------
 
 
