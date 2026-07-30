@@ -93,8 +93,11 @@ expansion, compilation, and Java interop. SCI remains portable across supported
 hosts.
 
 The reader, document helpers, tag constructors, and output compilers load under
-Babashka. Full Babashka-hosted SCI document evaluation remains unsupported
-because nested `sci/binding` is unavailable there.
+Babashka. The portable SCI document path runs through
+`fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator`; Babashka 1.12.218
+is the tested host. Prose keeps its configured inner SCI context and restores
+the caller's current SCI namespace after success, failure, and recursive
+requirements. The trusted JVM adapter remains separate.
 
 Run `just test` to execute the Clojure, ClojureScript, and mandatory Babashka
 compatibility gates.

@@ -161,9 +161,14 @@ child's `:document` values. The child inherits the parent's current namespace
 context but restores the parent context when it returns. `lib/insert-doc`
 remains read-only and does not evaluate the inserted forms.
 
-The SCI adapter has the same staged result contract on supported Clojure and
-ClojureScript hosts. Full Babashka-hosted SCI document evaluation remains out
-of scope because nested `sci/binding` is unavailable there.
+The SCI adapter has the same staged result contract on JVM Clojure,
+ClojureScript, and Babashka. On Babashka, use
+`fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator`; version 1.12.218
+is the tested host. Prose keeps its configured inner SCI context and restores
+the caller's exact current SCI namespace after success, failure, and recursive
+requirements. The trusted JVM adapter remains separate and uses
+`clojure.core/eval` with runtime classpath access. This lifecycle is synchronous
+and makes no concurrency guarantee for one mutable SCI context.
 
 
 ## The lower-level evaluation toolkit
@@ -326,8 +331,8 @@ and that's what we do with sci. Take a look at the
   ([sci-ctxt forms]
    (let [ef (sci-ctxt->sci-eval sci-ctxt)]
      (eval-common/bind-env {:prose.alpha/env :clojure-sci}
-       (sci/binding [sci/ns @sci/ns]
-         (eval-common/eval-forms-in-temp-ns ef forms))))))
+       (call-with-restored-sci-ns
+        #(eval-common/eval-forms-in-temp-ns ef forms))))))
 
 ```
 

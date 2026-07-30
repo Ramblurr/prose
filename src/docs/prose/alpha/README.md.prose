@@ -230,9 +230,14 @@ Cons:
 The pure reader still needs namespace aliases supplied in its reader options.
 The staged document evaluators instead use namespace changes from each evaluated
 top-level item while reading the next one. SCI can resolve only namespaces and
-vars exposed by its configured context. Full Babashka-hosted SCI document
-evaluation remains unsupported because nested `sci/binding` is unavailable
-there.
+vars exposed by its configured context. Babashka users run programmable
+documents through
+`fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator`; Babashka 1.12.218
+is the tested host. Prose keeps its configured inner SCI context and restores
+the caller's current SCI namespace after success, failure, and recursive
+requirements. The trusted JVM adapter remains separate and retains runtime
+classpath access. This lifecycle is synchronous and makes no concurrency
+guarantee for one mutable SCI context.
 
 
 ## Mentions
