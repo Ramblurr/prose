@@ -1,4 +1,4 @@
-import { HighlightStyle, StreamLanguage, syntaxHighlighting } from "@codemirror/language";
+import { HighlightStyle, StreamLanguage, StringStream, syntaxHighlighting } from "@codemirror/language";
 import { clojure } from "@codemirror/legacy-modes/mode/clojure";
 import { Tag, tags } from "@lezer/highlight";
 
@@ -86,11 +86,14 @@ function cloneClojureState(state) {
 }
 
 function clojureFrame(closing, indentUnit, finishCommand = false) {
+  const state = clojure.startState(indentUnit);
+  const opening = closing === ")" ? "(" : "[";
+  clojure.token(new StringStream(opening), state);
   return {
     kind: "clojure",
     closing,
     finishCommand,
-    state: clojure.startState(indentUnit),
+    state,
   };
 }
 
@@ -155,7 +158,7 @@ function consumeClojure(stream, state, frame) {
 
   if (atCodeBoundary
       && character === frame.closing
-      && frame.state.ctx.prev === null) {
+      && frame.state.ctx.prev?.prev === null) {
     stream.next();
     closeChildFrame(state, frame);
     return "prose-delimiter";

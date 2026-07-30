@@ -31,6 +31,7 @@ const semanticHighlighter = tagHighlighter([
   { tag: proseTags.symbol, class: "symbol" },
   { tag: proseTags.delimiter, class: "delimiter" },
   { tag: proseTags.verbatim, class: "verbatim" },
+  { tag: tags.standard(tags.variableName), class: "clojure-operator" },
   { tag: tags.keyword, class: "clojure-keyword" },
   { tag: tags.number, class: "clojure-number" },
   { tag: tags.string, class: "clojure-string" },
@@ -92,6 +93,20 @@ test("delegates Clojure while finding nested Prose outside protected text", () =
     ["◊hidden\"", "clojure-string"], ["; ◊commented", "clojure-comment"],
   ]);
   assert.ok(tokens(source).some(([text]) => text === "qualified/name"));
+});
+
+test("preserves conventional call heads and protected comment forms when embedded", () => {
+  assert.deepEqual(
+    semanticTokens("◊(custom-op 1)").filter(([, style]) => style === "clojure-operator"),
+    [["custom-op", "clojure-operator"]],
+  );
+  assert.deepEqual(semanticTokens("◊(comment ◊hidden)"), [
+    ["◊", "control"],
+    ["(", "delimiter"],
+    ["comment ", "clojure-comment"],
+    ["◊hidden", "clojure-comment"],
+    [")", "delimiter"],
+  ]);
 });
 
 test("keeps useful optimistic tokens for incomplete input", () => {
