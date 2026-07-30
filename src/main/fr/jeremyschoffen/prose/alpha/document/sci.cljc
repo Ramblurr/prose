@@ -60,32 +60,33 @@ API providing evaluation tools to evaluate document using Sci.
         initial-namespace (or (:initial-ns opts) temporary-symbol)
         hidden-namespace (or (:hidden-namespace inherited-context)
                              temporary-symbol)]
-    (sci/binding [sci/ns @sci/ns]
-      (when-not inherited-context
-        (sci/eval-form sci-ctxt (list 'ns initial-namespace)))
-      (try
-        (eval-common/bind-env
-         (evaluator/document-environment
-          request
-          (fn [required-path]
-            (let [context (namespace-context sci-ctxt)]
-              (evaluate-document*
-               (assoc request
-                      :path required-path
-                      :opts {}
-                      :inherited-context
-                      {:hidden-namespace
-                       (when (= hidden-namespace (:current context))
-                         hidden-namespace)})))))
-         (evaluator/evaluate-source
-          source
-          {:eval-form eval-form
-           :reader-context #(reader-context sci-ctxt hidden-namespace)}))
-        (finally
-          (when temporary-symbol
-            (sci/eval-form
-             sci-ctxt
-             (list 'remove-ns (list 'quote temporary-symbol)))))))))
+    (eval-sci/call-with-restored-sci-ns
+     (fn []
+       (when-not inherited-context
+         (sci/eval-form sci-ctxt (list 'ns initial-namespace)))
+       (try
+         (eval-common/bind-env
+          (evaluator/document-environment
+           request
+           (fn [required-path]
+             (let [context (namespace-context sci-ctxt)]
+               (evaluate-document*
+                (assoc request
+                       :path required-path
+                       :opts {}
+                       :inherited-context
+                       {:hidden-namespace
+                        (when (= hidden-namespace (:current context))
+                          hidden-namespace)})))))
+          (evaluator/evaluate-source
+           source
+           {:eval-form eval-form
+            :reader-context #(reader-context sci-ctxt hidden-namespace)}))
+         (finally
+           (when temporary-symbol
+             (sci/eval-form
+              sci-ctxt
+              (list 'remove-ns (list 'quote temporary-symbol))))))))))
 
 (defn make-evaluator
   "Creates a configured staged SCI document evaluator.

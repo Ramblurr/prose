@@ -80,6 +80,21 @@ Api providing tools to facilitate the evaluation of documents using Sci.
     (sci/eval-form ctxt form)))
 
 
+(defn ^:no-doc call-with-restored-sci-ns [f]
+  #?(:bb
+     (let [original-ns @sci/ns]
+       (try
+         (f)
+         (finally
+           (sci/set! sci/ns original-ns))))
+     :clj
+     (sci/binding [sci/ns @sci/ns]
+       (f))
+     :cljs
+     (sci/binding [sci/ns @sci/ns]
+       (f))))
+
+
 ;;----------------------------------------------------------------------------------------------------------------------
 ;; Eval functions
 ;;----------------------------------------------------------------------------------------------------------------------
@@ -90,8 +105,8 @@ Api providing tools to facilitate the evaluation of documents using Sci.
   ([sci-ctxt forms]
    (let [ef (sci-ctxt->sci-eval sci-ctxt)]
      (eval-common/bind-env {:prose.alpha/env :clojure-sci}
-       (sci/binding [sci/ns @sci/ns]
-         (eval-common/eval-forms ef forms))))))
+       (call-with-restored-sci-ns
+        #(eval-common/eval-forms ef forms))))))
 
 
 (comment
@@ -119,8 +134,8 @@ Api providing tools to facilitate the evaluation of documents using Sci.
   ([sci-ctxt forms]
    (let [ef (sci-ctxt->sci-eval sci-ctxt)]
      (eval-common/bind-env {:prose.alpha/env :clojure-sci}
-       (sci/binding [sci/ns @sci/ns]
-         (eval-common/eval-forms-in-temp-ns ef forms))))))
+       (call-with-restored-sci-ns
+        #(eval-common/eval-forms-in-temp-ns ef forms))))))
 
 (comment
   (sci/binding [sci/out *out*]

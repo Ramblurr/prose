@@ -2,14 +2,24 @@
   (:require
     [clojure.test :refer [deftest is run-tests]]
     [fr.jeremyschoffen.prose.alpha.document.lib :as lib]
+    [fr.jeremyschoffen.prose.alpha.document.sci :as document]
     [fr.jeremyschoffen.prose.alpha.document.sci.bindings :as bindings]
     [fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]
+    [fr.jeremyschoffen.prose.alpha.eval.sci :as eval-sci]
     [fr.jeremyschoffen.prose.alpha.out.html.compiler :as html]
     [fr.jeremyschoffen.prose.alpha.out.html.tags :as html-tags]
     [fr.jeremyschoffen.prose.alpha.out.latex.compiler :as latex]
     [fr.jeremyschoffen.prose.alpha.out.markdown.compiler :as markdown]
     [fr.jeremyschoffen.prose.alpha.out.markdown.tags :as markdown-tags]
-    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]
+    [sci.core :as sci]))
+
+
+(defn- thrown-error [f]
+  (try
+    (f)
+    (catch Exception error
+      error)))
 
 
 (deftest compatible-modules
@@ -94,6 +104,93 @@
                      (re-find #"^(instaparse|lambdaisland\.regal)"
                               (str (ns-name namespace))))
                    (all-ns)))}))))
+
+
+(deftest public-staged-sci-path
+  (let [success-source "Hello, ◊strong{◊(str (inc 41))}!"
+        failure-source
+        (str "◊(ns bb.document.failure)"
+             "◊(throw (ex-info \"boom\" {:kind :expected}))")
+        sources {:success success-source
+                 :failure failure-source}
+        sci-ctxt
+        (document/init
+         {:namespaces
+          {'bb.document {'strong html-tags/strong}}})
+        evaluate-document
+        (document/make-evaluator {:sci-ctxt sci-ctxt
+                                  :slurp-doc sources})
+        caller-namespace @sci/ns
+        success (evaluate-document
+                 :success {} {:initial-ns 'bb.document})
+        restored-after-success?
+        (identical? caller-namespace @sci/ns)
+        failure (thrown-error
+                 #(evaluate-document
+                   :failure {} {:initial-ns 'bb.document}))
+        restored-after-failure?
+        (identical? caller-namespace @sci/ns)
+        recovery (evaluate-document
+                  :success {} {:initial-ns 'bb.document})
+        expected-success
+        {:forms '["Hello, " (strong (str (inc 41))) "!"]
+         :document ["Hello, "
+                    {:tag :strong
+                     :content ["42"]
+                     :type :tag}
+                    "!"]}]
+    (is (= {:success expected-success
+            :html "Hello, <strong>42</strong>!"
+            :restored-after-success? true
+            :failure
+            {:phase :evaluation
+             :text "◊(throw (ex-info \"boom\" {:kind :expected}))"
+             :form '(throw (ex-info "boom" {:kind :expected}))
+             :forms '[(ns bb.document.failure)
+                      (throw (ex-info "boom" {:kind :expected}))]
+             :document [nil]}
+            :failure-cause {:kind :expected}
+            :restored-after-failure? true
+            :recovery expected-success
+            :restored-after-recovery? true}
+           {:success success
+            :html (html/compile! (:document success))
+            :restored-after-success? restored-after-success?
+            :failure
+            (select-keys (ex-data failure)
+                         [:phase :text :form :forms :document])
+            :failure-cause (ex-data (ex-cause failure))
+            :restored-after-failure? restored-after-failure?
+            :recovery recovery
+            :restored-after-recovery?
+            (identical? caller-namespace @sci/ns)}))))
+
+
+(deftest lower-level-sci-paths
+  (let [caller-namespace @sci/ns
+        success
+        (eval-sci/eval-forms
+         '[(ns bb.lower-level.success)
+           (+ 40 2)])
+        restored-after-success?
+        (identical? caller-namespace @sci/ns)
+        failure
+        (thrown-error
+         #(eval-sci/eval-forms-in-temp-ns
+           '[(throw (ex-info "lower boom" {:kind :lower}))]))]
+    (is (= {:success [nil 42]
+            :restored-after-success? true
+            :failure
+            {:prose.alpha.evaluation/env
+             {:prose.alpha/env :clojure-sci}
+             :prose.alpha.evaluation/form
+             '(throw (ex-info "lower boom" {:kind :lower}))}
+            :restored-after-failure? true}
+           {:success success
+            :restored-after-success? restored-after-success?
+            :failure (ex-data failure)
+            :restored-after-failure?
+            (identical? caller-namespace @sci/ns)}))))
 
 
 (let [{:keys [fail error]} (run-tests)]
