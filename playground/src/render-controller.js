@@ -140,20 +140,27 @@ export function createRenderController({
     });
   }
 
-  function handleWorkerError(candidate) {
-    if (candidate !== worker) return;
+  function failInitialization() {
     terminateWorker();
     publish({ workerState: "failed" });
     fail(initializationDiagnostic);
   }
 
+  function handleWorkerError(candidate) {
+    if (candidate === worker) failInitialization();
+  }
+
   function spawnWorker() {
     workerReady = false;
     publish({ workerState: "initializing" });
-    const candidate = createWorker();
-    worker = candidate;
-    candidate.addEventListener("message", ({ data }) => handleMessage(candidate, data));
-    candidate.addEventListener("error", () => handleWorkerError(candidate));
+    try {
+      const candidate = createWorker();
+      worker = candidate;
+      candidate.addEventListener("message", ({ data }) => handleMessage(candidate, data));
+      candidate.addEventListener("error", () => handleWorkerError(candidate));
+    } catch {
+      failInitialization();
+    }
   }
 
   function render(source) {

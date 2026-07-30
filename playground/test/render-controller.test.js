@@ -284,3 +284,72 @@ test("reports startup and protocol failures as visible first-error states", () =
     });
   }
 });
+
+test("reports synchronous worker-construction failure", () => {
+  const runtime = controlledRuntime();
+  const controller = runtime.controller({
+    createWorker() {
+      throw new Error("Worker construction failed.");
+    },
+  });
+
+  assert.doesNotThrow(() => controller.start());
+  assert.deepEqual(controller.getState(), {
+    diagnostic: {
+      message: "The render worker could not initialize.",
+      phase: "initialization",
+      source: null,
+    },
+    output: null,
+    renderState: "failed",
+    requestId: 0,
+    stale: false,
+    workerState: "failed",
+  });
+});
+
+test("reports a synchronous failure while constructing a timeout replacement", () => {
+  const runtime = controlledRuntime();
+  const states = [];
+  let constructions = 0;
+  const controller = runtime.controller({
+    createWorker() {
+      constructions += 1;
+      if (constructions > 1) throw new Error("Replacement construction failed.");
+      const worker = new ControlledWorker();
+      runtime.workers.push(worker);
+      return worker;
+    },
+    onChange(state) {
+      states.push(structuredClone(state));
+    },
+  });
+  controller.start();
+  runtime.workers[0].emit("message", ready);
+  controller.render("successful");
+  runtime.workers[0].emit("message", rendered(1, "<p>last good</p>"));
+  controller.render("◊(loop [] (recur))");
+
+  assert.doesNotThrow(() => runtime.runTimer(2000));
+  const diagnosticPhases = states
+    .filter(({ diagnostic }) => diagnostic)
+    .map(({ diagnostic }) => diagnostic.phase);
+  assert.equal(diagnosticPhases[0], "timeout");
+  assert.equal(diagnosticPhases.at(-1), "initialization");
+  assert.deepEqual(controller.getState(), {
+    diagnostic: {
+      message: "The render worker could not initialize.",
+      phase: "initialization",
+      source: null,
+    },
+    output: {
+      evaluated: "evaluated-1",
+      html: "<p>last good</p>",
+      reader: "reader-1",
+    },
+    renderState: "failed",
+    requestId: 2,
+    stale: true,
+    workerState: "failed",
+  });
+});
