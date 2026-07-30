@@ -101,8 +101,8 @@ API providing evaluation tools to evaluate document using Sci.
 
   The returned function accepts `path`, optional document `input`, and optional
   document options as separate arguments. It returns exactly `:forms` and
-  `:document`. This continues to rely on `sci/binding`; the known
-  Babashka-hosted SCI binding limitation is not changed by this evaluator."
+  `:document`. On success or failure, each invocation restores the caller's
+  current SCI namespace, including when Prose itself is hosted by Babashka."
   ([]
    (make-evaluator {}))
   ([env]
