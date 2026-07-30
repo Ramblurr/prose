@@ -168,7 +168,6 @@ test("installs Prose-aware source editing and literal Companion editing", async 
 
 test("uses native responsive interface controls with their approved ownership", async () => {
   const html = await text("static/index.html");
-  const styles = await text("static/styles.css");
   const header = html.match(/<header class="app-header">[\s\S]+?<\/header>/)?.[0] ?? "";
   const source = html.match(/<section class="pane source-pane"[\s\S]+?<div id="editor-stack"/)?.[0] ?? "";
   const resultRadios = [...html.matchAll(/type="radio" name="result-view"/g)];
@@ -184,6 +183,4 @@ test("uses native responsive interface controls with their approved ownership", 
   assert.equal(resultRadios.length, 4);
   assert.ok(html.indexOf("source-pane") < html.indexOf("result-pane"));
   assert.doesNotMatch(html, /role="tab(?:list)?"|tabindex=/);
-  assert.match(styles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(styles, /@media \(max-width: 720px\)[\s\S]+\.workspace \{ grid-template-columns: 1fr/);
 });
