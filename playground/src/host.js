@@ -2,7 +2,7 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { load } from "@starfederation/datastar/bundles/datastar";
 import { PluginType } from "@starfederation/datastar/types";
-import { renderOutcome } from "./render-controller.js";
+import { failureOutcome, renderOutcome } from "./render-controller.js";
 import { readinessState, renderRequest } from "./protocol.js";
 
 const stateEvent = "prose-playground-state";
@@ -51,17 +51,9 @@ function previewDocument(html) {
   return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"></head><body>${previewProjection(html)}</body></html>`;
 }
 
-function showFailure(phase, message) {
-  preview.srcdoc = previewDocument("");
-  publish({
-    diagnosticMessage: message,
-    diagnosticPhase: phase,
-    evaluatedResult: "",
-    htmlResult: "",
-    readerResult: "",
-    renderStatus: "Render failed",
-    workerStatusDetail: `${phase}: ${message}`,
-  });
+function showOutcome(outcome) {
+  preview.srcdoc = previewDocument(outcome.previewHtml);
+  publish(outcome.signals);
 }
 
 function requestRender() {
@@ -106,14 +98,13 @@ worker.addEventListener("message", ({ data }) => {
       workerState: "failed",
       workerStatus: "Initialization failed",
     });
-    showFailure("Initialization", "The worker uses an incompatible protocol version.");
+    showOutcome(
+      failureOutcome("Initialization", "The worker uses an incompatible protocol version."),
+    );
     return;
   }
   const outcome = renderOutcome(data, currentRequestId);
-  if (outcome) {
-    preview.srcdoc = previewDocument(outcome.previewHtml);
-    publish(outcome.signals);
-  }
+  if (outcome) showOutcome(outcome);
 });
 worker.addEventListener("error", () => {
   workerReady = false;
@@ -122,7 +113,7 @@ worker.addEventListener("error", () => {
     workerState: "failed",
     workerStatus: "Initialization failed",
   });
-  showFailure("Initialization", "The render worker could not initialize.");
+  showOutcome(failureOutcome("Initialization", "The render worker could not initialize."));
 });
 
 function createEditor(source) {
@@ -159,7 +150,7 @@ async function loadDefaultExample() {
       workerState: "failed",
       workerStatus: "Initialization failed",
     });
-    showFailure("Initialization", error.message);
+    showOutcome(failureOutcome("Initialization", error.message));
   }
 }
 

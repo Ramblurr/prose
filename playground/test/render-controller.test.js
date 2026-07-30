@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderOutcome } from "../src/render-controller.js";
+import { failureOutcome, renderOutcome } from "../src/render-controller.js";
 
 test("publishes only the current versioned Render outcome", () => {
   const rendered = {
@@ -21,6 +21,7 @@ test("publishes only the current versioned Render outcome", () => {
   assert.deepEqual(
     {
       failed: renderOutcome(failed, 3),
+      initialization: failureOutcome("Initialization", "Worker failed."),
       incompatible: renderOutcome({ ...rendered, protocol: 2 }, 3),
       rendered: renderOutcome(rendered, 3),
       stale: renderOutcome({ ...rendered, requestId: 2 }, 3),
@@ -36,6 +37,18 @@ test("publishes only the current versioned Render outcome", () => {
           readerResult: "",
           renderStatus: "Render failed",
           workerStatusDetail: "read: Unclosed command.",
+        },
+      },
+      initialization: {
+        previewHtml: "",
+        signals: {
+          diagnosticMessage: "Worker failed.",
+          diagnosticPhase: "Initialization",
+          evaluatedResult: "",
+          htmlResult: "",
+          readerResult: "",
+          renderStatus: "Render failed",
+          workerStatusDetail: "Initialization: Worker failed.",
         },
       },
       incompatible: null,

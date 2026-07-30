@@ -1,5 +1,20 @@
 import { currentRenderResponse } from "./protocol.js";
 
+export function failureOutcome(phase, messageText) {
+  return {
+    previewHtml: "",
+    signals: {
+      diagnosticMessage: messageText,
+      diagnosticPhase: phase,
+      evaluatedResult: "",
+      htmlResult: "",
+      readerResult: "",
+      renderStatus: "Render failed",
+      workerStatusDetail: `${phase}: ${messageText}`,
+    },
+  };
+}
+
 export function renderOutcome(message, currentRequestId) {
   const response = currentRenderResponse(message, currentRequestId);
   if (!response) return null;
@@ -20,16 +35,5 @@ export function renderOutcome(message, currentRequestId) {
 
   const phase = response.diagnostic?.phase ?? "render";
   const messageText = response.diagnostic?.message ?? "Render failed.";
-  return {
-    previewHtml: "",
-    signals: {
-      diagnosticMessage: messageText,
-      diagnosticPhase: phase,
-      evaluatedResult: "",
-      htmlResult: "",
-      readerResult: "",
-      renderStatus: "Render failed",
-      workerStatusDetail: `${phase}: ${messageText}`,
-    },
-  };
+  return failureOutcome(phase, messageText);
 }
