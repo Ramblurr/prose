@@ -291,13 +291,13 @@ Api providing several tools to use inside or outside of prose document.
 
 
 (defn get-eval-doc
-  "Get the eval-forms function from the evaluation environment."
+  "Returns the staged document evaluator from the evaluation environment."
   []
-  (get-env :prose.alpha.document/eval-forms))
+  (get-env :prose.alpha.document/evaluate-document))
 
 
 (defn eval-doc
-  "Eval a document using the function given by [[get-eval-doc]]."
+  "Evaluates a document using the function returned by [[get-eval-doc]]."
   [& args]
   (apply (get-eval-doc) args))
 
@@ -315,51 +315,27 @@ Api providing several tools to use inside or outside of prose document.
 
 
 (defmacro insert-doc
-  "Insert the slurped and read content of another document."
+  "Inserts another document's slurped and read content without evaluating it."
   [path]
-  (apply <>
-         (load* (comp read-doc slurp-doc)
-                {:path path
-                 :form &form
-                 :error-msg "Error inserting doc."})))
+  (list 'quote
+        (apply <>
+               (load* (comp read-doc slurp-doc)
+                      {:path path
+                       :form &form
+                       :error-msg "Error inserting doc."}))))
 
 
 (defn require-doc
-  "Insert the slurped, read and evaluated content of another document."
+  "Evaluates another document with staging and inserts its document values."
   [path]
-  (apply <> (load* (comp eval-doc read-doc slurp-doc)
+  (apply <> (load* (comp :document eval-doc)
                    {:path path
                     :error-msg "Error requiring doc."})))
 
 
-#_{:clj-kondo/ignore [:unresolved-symbol]}
 (comment
   (eval-common/bind-env {:prose.alpha.document/input {:some :input}}
                         (eval-common/eval-forms-in-temp-ns
                           '[(require '[fr.jeremyschoffen.prose.alpha.document.lib :refer [get-input]])
                             (get-input)]))
-
-  (into (sorted-set)
-        (comp
-          (map str)
-          (map keyword))
-        (all-ns))
-
-  (require '[clojure.java.io :as io])
-  (require '[fr.jeremyschoffen.prose.alpha.reader.core :as reader])
-
-
-  (def slurp-doc (fn [path]
-                  (-> path
-                      io/resource
-                      slurp)))
-
-  (eval-common/bind-env {:prose.alpha.document/slurp-doc slurp-doc
-                         :prose.alpha.document/read-doc reader/read-from-string
-                         :prose.alpha.document/eval-forms eval-common/eval-forms-in-temp-ns}
-                        (-> "complex-doc/master.prose"
-                            load-doc
-                            eval-common/eval-forms-in-temp-ns)))
-
-
-
+)

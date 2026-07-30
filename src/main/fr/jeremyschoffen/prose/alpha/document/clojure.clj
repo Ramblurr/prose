@@ -5,6 +5,7 @@ API providing evaluation tools to evaluate documents using Clojure's environment
  fr.jeremyschoffen.prose.alpha.document.clojure
   (:require
    [clojure.java.io :as io]
+   [fr.jeremyschoffen.prose.alpha.document.common.evaluator :as evaluator]
    [fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]
    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
 
@@ -37,67 +38,41 @@ API providing evaluation tools to evaluate documents using Clojure's environment
     (not (identical? hidden-namespace *ns*))
     (assoc :current (ns-name *ns*))))
 
-(defn- evaluation-error [source progress form error]
-  (ex-info "Error during document evaluation."
-           (merge {:phase :evaluation
-                   :source source
-                   :text (reader/form->text form source)
-                   :form form
-                   :source-region
-                   (-> form
-                       meta
-                       :fr.jeremyschoffen.prose.alpha.reader.core/parse-region)}
-                  @progress)
-           error))
-
-(defn- read-error [error progress]
-  (let [data (ex-data error)]
-    (ex-info (ex-message error)
-             (merge data
-                    {:phase (or (:phase data) :read)}
-                    @progress)
-             error)))
-
-(defn- evaluate-source [source eval-form initial-ns]
-  (let [temporary-symbol (when-not initial-ns
-                           (gensym "prose.alpha.document.temp-"))
-        active-namespace (ensure-namespace (or initial-ns temporary-symbol))
-        hidden-namespace (when temporary-symbol active-namespace)]
-    (try
-      (binding [*ns* active-namespace]
-        (let [progress (volatile! {:forms [] :document []})]
-          (try
-            (-> (reader/reduce-top-level
-                 source
-                 {:reader-context #(reader-context hidden-namespace)}
-                 (fn [state form]
-                   (let [state (update state :forms conj form)]
-                     (vreset! progress state)
-                     (try
-                       (let [state (update state :document conj (eval-form form))]
-                         (vreset! progress state)
-                         state)
-                       (catch Exception error
-                         (throw (evaluation-error source progress form error))))))
-                 @progress)
-                :result)
-            (catch Exception error
-              (if (= :evaluation (:phase (ex-data error)))
-                (throw error)
-                (throw (read-error error progress)))))))
-      (finally
-        (when (and temporary-symbol (find-ns temporary-symbol))
-          (remove-ns temporary-symbol))))))
 
 (defn- evaluate-document*
-  [{:keys [slurp-doc read-doc eval-form eval-forms]} path input opts]
-  (eval-common/bind-env
-   {:prose.alpha.document/path path
-    :prose.alpha.document/input input
-    :prose.alpha.document/slurp-doc slurp-doc
-    :prose.alpha.document/read-doc read-doc
-    :prose.alpha.document/eval-forms eval-forms}
-   (evaluate-source (slurp-doc path) eval-form (:initial-ns opts))))
+  ([env path input opts]
+   (evaluate-document* env path input opts nil))
+  ([{:keys [slurp-doc read-doc eval-form eval-forms] :as env}
+    path input opts inherited-context]
+   (let [source (slurp-doc path)
+         temporary-symbol (when-not (or inherited-context (:initial-ns opts))
+                            (gensym "prose.alpha.document.temp-"))
+         active-namespace (or (:namespace inherited-context)
+                              (ensure-namespace (or (:initial-ns opts) temporary-symbol)))
+         hidden-namespace (or (:hidden-namespace inherited-context)
+                              (when temporary-symbol active-namespace))]
+     (try
+       (binding [*ns* active-namespace]
+         (eval-common/bind-env
+          {:prose.alpha.document/path path
+           :prose.alpha.document/input input
+           :prose.alpha.document/slurp-doc slurp-doc
+           :prose.alpha.document/read-doc read-doc
+           :prose.alpha.document/eval-forms eval-forms
+           :prose.alpha.document/evaluate-document
+           (fn [required-path]
+             (evaluate-document*
+              env required-path input {}
+              {:namespace *ns*
+               :hidden-namespace (when (identical? hidden-namespace *ns*)
+                                   hidden-namespace)}))}
+          (evaluator/evaluate-source
+           source
+           {:eval-form eval-form
+            :reader-context #(reader-context hidden-namespace)})))
+       (finally
+         (when (and temporary-symbol (find-ns temporary-symbol))
+           (remove-ns temporary-symbol)))))))
 
 (defn evaluate-document
   "Evaluates the document at `path` one top-level item at a time.

@@ -13,11 +13,12 @@
                                    :content
                                    {:tag :doc
                                     :content (:document evaluated-document)}))
-        [first-tag second-tag third-tag fourth-tag] ns-tags]
-    (is (= {:required-copies [first-tag first-tag]
-            :inserted-different? true}
-           {:required-copies [second-tag fourth-tag]
-            :inserted-different? (not= first-tag third-tag)}))))
+        first-tag (first ns-tags)]
+    (is (= {:tag-count 3
+            :same-parent-context? true}
+           {:tag-count (count ns-tags)
+            :same-parent-context?
+            (every? #(= first-tag %) (rest ns-tags))}))))
 
 
 (deftest stages-reading-after-namespace-evaluation
