@@ -13,7 +13,8 @@ body {
 }
 
 button,
-input { font: inherit; }
+input,
+select { font: inherit; }
 
 button {
   border: 1px solid #77756b;
@@ -64,6 +65,24 @@ h3 { font-size: 0.9rem; }
   display: inline-flex;
   gap: 0.35rem;
 }
+
+.source-pane .pane-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.source-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  max-width: 100%;
+}
+
+.source-actions label { font-size: 0.8rem; }
+.source-actions select { max-width: 100%; }
 
 .worker-status {
   align-items: center;

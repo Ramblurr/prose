@@ -1,0 +1,12 @@
+◊(require '[fr.jeremyschoffen.prose.alpha.out.html.tags :refer [article h1 h2 header p section]])
+
+◊article{
+  ◊header{
+    ◊h1{Field notes}
+    ◊p{A short report from the trail.}
+  }
+  ◊section{
+    ◊h2{What we found}
+    ◊p{Clear structure makes generated HTML useful.}
+  }
+}

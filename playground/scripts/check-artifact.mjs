@@ -4,12 +4,17 @@ import { join } from "node:path";
 
 const dist = new URL("../dist/", import.meta.url);
 const assets = new URL("assets/", dist);
+const examplePaths = [
+  "examples/01-text-and-code.prose",
+  "examples/02-semantic-html.prose",
+  "examples/04-html-from-a-collection.prose",
+];
 const required = [
   "index.html",
   "assets/styles.css",
   "assets/host.js",
   "assets/worker.js",
-  "examples/01-text-and-code.prose",
+  ...examplePaths,
 ];
 
 function localAsset(reference, base) {
@@ -49,10 +54,12 @@ for (const path of required) {
   assert.ok((await stat(file)).size > 0, `${path} must not be empty`);
 }
 
-assert.equal(
-  await readFile(new URL("examples/01-text-and-code.prose", dist), "utf8"),
-  await readFile(new URL("../../examples/01-text-and-code.prose", import.meta.url), "utf8"),
-);
+for (const path of examplePaths) {
+  assert.equal(
+    await readFile(new URL(path, dist), "utf8"),
+    await readFile(new URL(`../../${path}`, import.meta.url), "utf8"),
+  );
+}
 
 const html = await readFile(new URL("index.html", dist), "utf8");
 for (const match of html.matchAll(/(?:src|href)=["']([^"']+)/g)) {

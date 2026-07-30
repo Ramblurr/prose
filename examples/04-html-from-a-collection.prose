@@ -1,0 +1,9 @@
+◊(require '[fr.jeremyschoffen.prose.alpha.out.html.tags :refer [h2 li ul]])
+
+◊h2{Render stages}
+◊ul{
+  ◊(for [stage ["Read source"
+                "Evaluate forms"
+                "Compile HTML"]]
+     (li stage))
+}

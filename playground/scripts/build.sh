@@ -5,7 +5,11 @@ rm -rf dist target
 mkdir -p dist/assets dist/examples target/cljs
 cp static/index.html dist/index.html
 cp static/styles.css dist/assets/styles.css
-cp ../examples/01-text-and-code.prose dist/examples/01-text-and-code.prose
+cp \
+  ../examples/01-text-and-code.prose \
+  ../examples/02-semantic-html.prose \
+  ../examples/04-html-from-a-collection.prose \
+  dist/examples/
 pnpm exec esbuild src/host.js --bundle --format=esm --minify --outfile=dist/assets/host.js
 clojure -M -m cljs.main \
   -O advanced \

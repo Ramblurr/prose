@@ -58,3 +58,61 @@ test("builds without installing and disables worker shims", async () => {
   assert.match(build, /:browser-repl false/);
   assert.match(build, /:process-shim false/);
 });
+
+test("keeps the three single-source Examples canonical and ordered", async () => {
+  assert.deepEqual(
+    await Promise.all([
+      text("../examples/01-text-and-code.prose"),
+      text("../examples/02-semantic-html.prose"),
+      text("../examples/04-html-from-a-collection.prose"),
+    ]),
+    [
+      `◊(require '[fr.jeremyschoffen.prose.alpha.document.lib :refer [def-s]])
+
+◊(def-s language "Prose")
+
+Hello from ◊|language — where text and code meet.
+
+Two plus three is ◊(+ 2 3).
+`,
+      `◊(require '[fr.jeremyschoffen.prose.alpha.out.html.tags :refer [article h1 h2 header p section]])
+
+◊article{
+  ◊header{
+    ◊h1{Field notes}
+    ◊p{A short report from the trail.}
+  }
+  ◊section{
+    ◊h2{What we found}
+    ◊p{Clear structure makes generated HTML useful.}
+  }
+}
+`,
+      `◊(require '[fr.jeremyschoffen.prose.alpha.out.html.tags :refer [h2 li ul]])
+
+◊h2{Render stages}
+◊ul{
+  ◊(for [stage ["Read source"
+                "Evaluate forms"
+                "Compile HTML"]]
+     (li stage))
+}
+`,
+    ],
+  );
+});
+
+test("provides the pre-baked single-source Example controls without export actions", async () => {
+  const html = await text("static/index.html");
+  const options = [...html.matchAll(
+    /<option value="([^"]+)">([^<]+)<\/option>/g,
+  )].map(([, id, title]) => [id, title.trim()]);
+
+  assert.deepEqual(options, [
+    ["text-and-code", "Text and code"],
+    ["semantic-html", "Semantic HTML"],
+    ["html-from-a-collection", "HTML from a collection"],
+  ]);
+  assert.match(html, /<button id="reset-example" type="button" disabled>Reset<\/button>/);
+  assert.doesNotMatch(html, />\s*(?:Copy|Download|Export|Package|Publish|Share)\s*</i);
+});

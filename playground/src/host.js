@@ -2,14 +2,31 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { load } from "@starfederation/datastar/bundles/datastar";
 import { PluginType } from "@starfederation/datastar/types";
+import { createExampleController } from "./example-controller.js";
 import { createRenderController } from "./render-controller.js";
 
 const stateEvent = "prose-playground-state";
 const auto = document.querySelector("#auto-render");
 const editorParent = document.querySelector("#source-editor");
+const exampleSelect = document.querySelector("#example-select");
 const preview = document.querySelector("#preview");
 const previewShell = document.querySelector("#preview-shell");
+const resetExample = document.querySelector("#reset-example");
+const sourceHeading = document.querySelector("#source-heading");
 const stalePreviewStatus = document.querySelector("#stale-preview-status");
+const exampleUrls = {
+  "html-from-a-collection": new URL(
+    "../examples/04-html-from-a-collection.prose",
+    import.meta.url,
+  ),
+  "semantic-html": new URL("../examples/02-semantic-html.prose", import.meta.url),
+  "text-and-code": new URL("../examples/01-text-and-code.prose", import.meta.url),
+};
+const exampleDescriptors = [...exampleSelect.options].map((option) => ({
+  id: option.value,
+  title: option.textContent.trim(),
+  url: exampleUrls[option.value],
+}));
 const resultNames = {
   preview: "Preview",
   html: "HTML",
@@ -24,6 +41,7 @@ const phaseNames = {
   timeout: "Timeout",
 };
 
+let exampleController;
 let editor;
 let previewHtml = null;
 
@@ -139,7 +157,10 @@ function createEditor(source) {
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({ "aria-labelledby": "source-editor-label" }),
       EditorView.updateListener.of((update) => {
-        if (update.docChanged) scheduleAutoRender();
+        if (update.docChanged) {
+          exampleController.edit(update.state.doc.toString());
+          scheduleAutoRender();
+        }
       }),
       keymap.of([
         { key: "Mod-Enter", run: () => (requestRender(), true) },
@@ -154,11 +175,40 @@ function createEditor(source) {
   requestRender();
 }
 
-async function loadDefaultExample() {
+function activateExample({ selectedExample, source, title }) {
+  exampleSelect.value = selectedExample;
+  sourceHeading.textContent = title;
+  if (!editor) {
+    createEditor(source);
+    return;
+  }
+  editor.dispatch({ changes: { from: 0, insert: source, to: editor.state.doc.length } });
+  requestRender();
+}
+
+function browserStorage() {
   try {
-    const response = await fetch(new URL("../examples/01-text-and-code.prose", import.meta.url));
-    if (!response.ok) throw new Error(`Example request failed with HTTP ${response.status}.`);
-    createEditor(await response.text());
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+async function loadExamples() {
+  try {
+    const examples = await Promise.all(exampleDescriptors.map(async (descriptor) => {
+      const response = await fetch(descriptor.url);
+      if (!response.ok) throw new Error(`Example request failed with HTTP ${response.status}.`);
+      return { ...descriptor, source: await response.text() };
+    }));
+    exampleController = createExampleController({
+      examples,
+      onActivate: activateExample,
+      storage: browserStorage(),
+    });
+    exampleController.start();
+    exampleSelect.disabled = false;
+    resetExample.disabled = false;
   } catch (error) {
     publish({
       diagnosticDetail: "",
@@ -170,6 +220,8 @@ async function loadDefaultExample() {
   }
 }
 
+exampleSelect.addEventListener("change", () => exampleController.select(exampleSelect.value));
+resetExample.addEventListener("click", () => exampleController.reset());
 document.querySelector("#render").addEventListener("click", requestRender);
 auto.addEventListener("change", () => {
   if (auto.checked) scheduleAutoRender();
@@ -184,4 +236,4 @@ for (const radio of document.querySelectorAll('input[name="result-view"]')) {
 }
 
 controller.start();
-void loadDefaultExample();
+void loadExamples();
