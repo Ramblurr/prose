@@ -55,12 +55,35 @@
     (clojurizer/clojurize form)))
 
 
-(defn read-from-string* [text]
-  (try
-    (binding [clojurizer/*reader-options* *reader-options*]
-      (portable/read-from-string text))
-    (catch #?@(:clj [Exception e] :cljs [js/Error e])
-      (error/handle-read-error e))))
+(defn reduce-top-level
+  "Scans `text` once and reduces its top-level items as ordinary Clojure data.
+
+  Options:
+
+  | key               | description
+  | ----------------- | -----------
+  | `:reader-context` | Zero-argument function returning `:current` and `:aliases` namespace symbols. |
+  | `:reader-options` | Edamame options for embedded Clojure; replaces the safe defaults. |
+
+  See [[fr.jeremyschoffen.prose.alpha.reader.portable/reduce-top-level]] for
+  the return value and callback timing."
+  [text opts rf init]
+  (portable/reduce-top-level
+    text
+    (assoc opts :reader-options (get opts :reader-options *reader-options*))
+    rf
+    init))
+
+(defn read-from-string*
+  ([text]
+   (read-from-string* text {}))
+  ([text opts]
+   (try
+     (portable/read-from-string
+       text
+       (assoc opts :reader-options (get opts :reader-options *reader-options*)))
+     (catch #?@(:clj [Exception e] :cljs [js/Error e])
+       (error/handle-read-error e)))))
 
 
 (defn read-from-string
@@ -70,14 +93,16 @@
 
   | key               | description
   | ----------------- | -----------
+  | `:initial-ns`     | Namespace symbol used to resolve current-namespace syntax. |
   | `:reader-options` | Edamame options for embedded Clojure; replaces the safe defaults. |
 
-  The defaults support standard Clojure forms and disable `:read-eval`."
+  `:initial-ns` overrides `:current` in `:reader-options` while preserving its
+  alias mappings. The defaults support standard Clojure forms and disable
+  `:read-eval`. Reading never evaluates document forms."
   ([text]
    (read-from-string* text))
   ([text opts]
-   (binding [*reader-options* (get opts :reader-options *reader-options*)]
-     (read-from-string* text))))
+   (read-from-string* text opts)))
 
 
 (defn form->text

@@ -65,6 +65,66 @@
   (is (thrown? #?(:clj Exception :cljs js/Error)
                (reader/read-from-string "◊(#=(+ 1 2))"))))
 
+(deftest applies-initial-namespace-throughout-document
+  (is (= '[(vector :assigned.document/parenthesized
+                   #:assigned.document{:mapped true})
+           (outer :assigned.document/argument
+                  #:alias.target{:mapped true}
+                  (inner :assigned.document/nested))]
+         (reader/read-from-string
+           (str "◊(vector ::parenthesized #::{:mapped true})"
+                "◊outer[::argument #::alias{:mapped true}]{◊inner[::nested]}")
+           {:initial-ns 'assigned.document
+            :reader-options {:auto-resolve {:current 'ignored.document
+                                            'alias 'alias.target}}}))))
+
+(deftest pure-reading-does-not-evaluate-forms
+  (let [side-effect (atom 0)]
+    (is (= '[(swap! side-effect inc)]
+           (reader/read-from-string
+             "◊(swap! side-effect inc)"
+             {:initial-ns 'assigned.document})))
+    (is (zero? @side-effect))))
+
+(deftest reads-top-level-items-under-changing-context
+  (let [source "◊(identity ::one)◊outer[::a/two]{◊inner[::nested]}"
+        context (atom {:current 'first.document})
+        {:keys [result source-region]}
+        (reader/reduce-top-level
+          source
+          {:reader-context #(deref context)}
+          (fn [forms form]
+            (reset! context {:current 'second.document
+                             :aliases {'a 'alias.target}})
+            (conj forms form))
+          [])]
+    (is (= {:forms '[(identity :first.document/one)
+                     (outer :alias.target/two
+                            (inner :second.document/nested))]
+            :source-text ["◊(identity ::one)"
+                          "◊outer[::a/two]{◊inner[::nested]}"]
+            :source-region {:start-index 0
+                            :end-index 50
+                            :start-line 1
+                            :start-column 1
+                            :end-line 1
+                            :end-column 51}}
+           {:forms result
+            :source-text (mapv #(reader/form->text % source) result)
+            :source-region source-region}))))
+
+(deftest scans-complete-structure-before-reducing
+  (let [reduced (atom [])]
+    (is (thrown? #?(:clj Exception :cljs js/Error)
+                 (reader/reduce-top-level
+                   "◊(identity :first)◊outer{"
+                   {}
+                   (fn [forms form]
+                     (swap! reduced conj form)
+                     forms)
+                   [])))
+    (is (= [] @reduced))))
+
 
 (deftest reads-named-commands-and-delimited-arguments
   (are [source expected] (= expected (reader/read-from-string source))

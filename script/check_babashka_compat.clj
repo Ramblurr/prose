@@ -62,6 +62,10 @@
              :column 9
              :expected "a command"}
             :reader-options '[(:example.ns/value)]
+            :initial-ns '[(vector :bb.document/local
+                                  #:bb.document{:key 1})
+                          (outer :alias.target/value
+                                 (inner :bb.document/nested))]
             :parser-libraries-loaded? false}
            {:forms (reader/read-from-string
                     "Unicode α\nbefore ◊(vector ◊|some.ns/value ◊(inc 1) ◊\"42\") and ◊\"literal ◊ text\"")
@@ -77,6 +81,13 @@
                              "◊(::alias/value)"
                              {:reader-options
                               {:auto-resolve {'alias 'example.ns}}})
+            :initial-ns (reader/read-from-string
+                          (str "◊(vector ::local #::{:key 1})"
+                               "◊outer[::alias/value]{◊inner[::nested]}")
+                          {:initial-ns 'bb.document
+                           :reader-options
+                           {:auto-resolve {:current 'ignored.document
+                                           'alias 'alias.target}}})
             :parser-libraries-loaded?
             (boolean
              (some (fn [namespace]

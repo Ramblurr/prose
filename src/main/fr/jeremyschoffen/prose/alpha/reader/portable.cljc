@@ -365,23 +365,65 @@
               :fr.jeremyschoffen.prose.alpha.reader.core/parse-region)]
       (subs source start-index end-index))))
 
-(defn- read-from-string* [source]
+(defn- contextual-reader-options
+  [reader-options {:keys [current aliases]}]
+  (update reader-options
+          :auto-resolve
+          #(cond-> (merge % aliases)
+             current (assoc :current current))))
+
+(defn reduce-top-level
+  "Scans `source` once and reduces its top-level items as ordinary Clojure data.
+
+  Options:
+
+  | key               | description
+  | ----------------- | -----------
+  | `:reader-context` | Zero-argument function returning `:current` and `:aliases` namespace symbols. |
+  | `:reader-options` | Edamame options for embedded Clojure; replaces the safe defaults. |
+
+  The reader calls `:reader-context` immediately before reading each item.
+  Returns `:result` with the reduced value and `:source-region` for the complete
+  document. Scanner nodes remain internal."
+  [source opts rf init]
   (let [line-starts (line-start-indexes source)]
     (try
-      (-> source
-          parse
-          (add-source-regions line-starts)
-          clojurizer/clojurize)
+      (let [document (-> source
+                         parse
+                         (add-source-regions line-starts))
+            reader-context (or (:reader-context opts) (constantly nil))
+            reader-options (get opts :reader-options clojurizer/*reader-options*)]
+        {:result (reduce (fn [acc node]
+                           (binding [clojurizer/*reader-options*
+                                     (contextual-reader-options reader-options
+                                                                (reader-context))]
+                             (rf acc (clojurizer/clojurize node))))
+                         init
+                         (:content document))
+         :source-region (meta document)})
       (catch #?@(:clj [Exception error] :cljs [js/Error error])
         (throw (normalized-read-error source line-starts error))))))
+
+(defn- read-from-string* [source opts]
+  (let [initial-ns (:initial-ns opts)
+        opts (cond-> opts
+               initial-ns (assoc :reader-context
+                                 (constantly {:current initial-ns})))
+        {:keys [result source-region]} (reduce-top-level source opts conj [])]
+    (vary-meta result assoc
+               :fr.jeremyschoffen.prose.alpha.reader.core/parse-region
+               source-region)))
 
 (defn read-from-string
   "Reads `source` as Prose syntax and returns evaluator-neutral Clojure data.
 
-  When supplied, `:reader-options` replaces the Edamame options for this read."
+  Options:
+
+  | key               | description
+  | ----------------- | -----------
+  | `:initial-ns`     | Namespace symbol used to resolve current-namespace syntax. |
+  | `:reader-options` | Edamame options for embedded Clojure; replaces the safe defaults. |"
   ([source]
-   (read-from-string* source))
+   (read-from-string* source {}))
   ([source opts]
-   (binding [clojurizer/*reader-options*
-             (get opts :reader-options clojurizer/*reader-options*)]
-     (read-from-string* source))))
+   (read-from-string* source opts)))
