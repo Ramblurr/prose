@@ -3,6 +3,8 @@ import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { load } from "@starfederation/datastar/bundles/datastar";
 import { PluginType } from "@starfederation/datastar/types";
 import { createExampleController } from "./example-controller.js";
+import { atShorthand } from "./lozenge-shorthand.js";
+import { balancedSyntax, clojureLanguage, proseLanguage } from "./prose-language.js";
 import { createRenderController } from "./render-controller.js";
 
 const stateEvent = "prose-playground-state";
@@ -174,12 +176,15 @@ function scheduleAutoRender() {
   controller.schedule(program.source, program.companion);
 }
 
-function createEditor({ label, onEdit, parent, source }) {
+function createEditor({ label, language, onEdit, parent, shorthand = false, source }) {
   return new EditorView({
     doc: source,
     extensions: [
       lineNumbers(),
       history(),
+      language,
+      balancedSyntax,
+      ...(shorthand ? atShorthand : []),
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({ "aria-labelledby": label }),
       EditorView.updateListener.of((update) => {
@@ -213,12 +218,15 @@ function companionPresentation({ companion, companionVisible }) {
 function createEditors(program) {
   sourceEditor = createEditor({
     label: "source-editor-label",
+    language: proseLanguage,
     onEdit: (source) => exampleController.editSource(source),
     parent: sourceEditorParent,
     source: program.source,
+    shorthand: true,
   });
   companionEditor = createEditor({
     label: "companion-editor-label",
+    language: clojureLanguage,
     onEdit: (source) => exampleController.editCompanion(source),
     parent: companionEditorParent,
     source: program.companion ?? "",

@@ -22,7 +22,11 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
     {
       dependencies: {
         "@codemirror/commands": "6.10.4",
+        "@codemirror/language": "6.12.4",
+        "@codemirror/legacy-modes": "6.5.3",
+        "@codemirror/state": "6.7.1",
         "@codemirror/view": "6.43.6",
+        "@lezer/highlight": "1.2.3",
         "@starfederation/datastar": "1.0.0-beta.11",
       },
       devDependencies: { esbuild: "0.28.1" },
@@ -32,8 +36,11 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
   assert.match(deps, /io\.github\.jerems\/prose \{:local\/root "\.\."\}/);
   const lockPins = [
     "'@codemirror/commands@6.10.4'",
+    "'@codemirror/language@6.12.4'",
+    "'@codemirror/legacy-modes@6.5.3'",
     "'@codemirror/state@6.7.1'",
     "'@codemirror/view@6.43.6'",
+    "'@lezer/highlight@1.2.3'",
     "'@starfederation/datastar@1.0.0-beta.11'",
     "esbuild@0.28.1",
   ];
@@ -140,4 +147,21 @@ test("provides the fixed paired-source controls without project or export action
     html,
     />\s*(?:Add source|Copy|Download|Export|Package|Publish|Share)\s*</i,
   );
+});
+
+test("installs Prose-aware source editing and literal Companion editing", async () => {
+  const host = await text("src/host.js");
+  const html = await text("static/index.html");
+  const styles = await text("static/styles.css");
+
+  assert.match(host, /language: proseLanguage,[\s\S]+shorthand: true/);
+  assert.match(host, /language: clojureLanguage/);
+  assert.doesNotMatch(
+    host.match(/companionEditor = createEditor\(\{[\s\S]+?\n  \}\);/)?.[0] ?? "",
+    /shorthand: true/,
+  );
+  assert.match(html, /Type <kbd>@<\/kbd> directly for <code>◊<\/code>/);
+  assert.match(html, /without\s+interruption for a literal <code>@<\/code>/);
+  assert.match(styles, /\.tok-prose-command/);
+  assert.match(styles, /@media \(prefers-color-scheme: dark\)[\s\S]+--syntax-command/);
 });
