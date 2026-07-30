@@ -16,4 +16,16 @@ cljs-test opts="":
 bb-compat-test:
 	bb -Sdeps '{:deps {io.github.jerems/prose {:local/root "."}}}' script/check_babashka_compat.clj
 
-test: clj-test cljs-test bb-compat-test
+playground-build:
+	cd playground && ./scripts/build.sh
+
+playground-serve:
+	python3 -m http.server --directory playground/dist 8000
+
+playground-check:
+	cd playground && pnpm run check
+	mkdir -p playground/dist && printf stale > playground/dist/stale-output
+	just playground-build
+	node playground/scripts/check-artifact.mjs
+
+test: clj-test cljs-test bb-compat-test playground-check

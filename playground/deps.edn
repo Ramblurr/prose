@@ -1,0 +1,4 @@
+{:paths ["src"]
+
+ :deps {io.github.jerems/prose {:local/root ".."}
+        org.clojure/clojurescript {:mvn/version "1.11.60"}}}

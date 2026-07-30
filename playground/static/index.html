@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prose Playground</title>
+  <link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body data-signals="{workerReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.'}">
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Prose</p>
+      <h1>Playground</h1>
+    </div>
+    <div class="actions">
+      <span id="worker-status" class="worker-status" data-state="initializing"
+            data-attr-data-state="$workerState" data-text="$workerStatus">Initializing…</span>
+      <button id="render" type="button" data-attr-disabled="!$workerReady" disabled>Render</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="pane source-pane" aria-labelledby="source-heading">
+      <div class="pane-heading">
+        <div>
+          <p class="eyebrow">Source</p>
+          <h2 id="source-heading">Playground source</h2>
+        </div>
+        <button type="button" disabled>Reset</button>
+      </div>
+      <div class="editor-shell" aria-label="Playground editor loading">
+        <span>Editor loads after the render worker is ready.</span>
+      </div>
+    </section>
+
+    <section class="pane result-pane" aria-labelledby="result-heading">
+      <div class="pane-heading">
+        <div>
+          <p class="eyebrow">Result</p>
+          <h2 id="result-heading">Preview</h2>
+        </div>
+      </div>
+      <div class="preview-shell">
+        <p id="worker-status-detail" data-text="$workerStatusDetail">Starting the isolated render worker.</p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./assets/host.js"></script>
+</body>
+</html>

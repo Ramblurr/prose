@@ -9,6 +9,7 @@ scripts
 .nrepl-port
 package-lock.json
 package.json
+!playground/package.json
 
 .clj-kondo/**
 !.clj-kondo/config.edn

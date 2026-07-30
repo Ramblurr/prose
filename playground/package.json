@@ -1,0 +1,17 @@
+{
+  "name": "prose-playground",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "build": "./scripts/build.sh",
+    "check": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@starfederation/datastar": "1.0.0-beta.11"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
+}
