@@ -138,3 +138,51 @@ test("blocks indirect worker-global and network recovery", async (t) => {
     ],
   );
 });
+
+test("returns honest Reader, evaluation, and compilation Diagnostics", async (t) => {
+  const worker = await readyWorker(t);
+  const readerSource = "line one\nbefore ◊";
+  const evaluationSource = "before ◊|missing-symbol";
+  const readerFailure = await render(worker, 9, readerSource);
+  const evaluationFailure = await render(worker, 10, evaluationSource);
+  const compilationFailure = await render(
+    worker,
+    11,
+    "◊(identity {:type :tag :tag 1 :attrs {} :content []})",
+  );
+
+  assert.deepEqual(readerFailure.diagnostic, {
+    expected: "a command",
+    failedText: "◊",
+    message: "Prose reader error at line 2, column 9: expected a command.",
+    phase: "read",
+    position: { column: 9, index: 17, line: 2 },
+    range: {
+      endColumn: 9,
+      endIndex: 17,
+      endLine: 2,
+      startColumn: 8,
+      startIndex: 16,
+      startLine: 2,
+    },
+    source: "Playground",
+  });
+  assert.deepEqual(evaluationFailure.diagnostic, {
+    message: "Could not resolve symbol: missing-symbol",
+    phase: "playground-evaluate",
+    range: {
+      endColumn: evaluationSource.length + 1,
+      endIndex: evaluationSource.length,
+      endLine: 1,
+      startColumn: 8,
+      startIndex: 7,
+      startLine: 1,
+    },
+    source: "Playground",
+  });
+  assert.deepEqual(compilationFailure.diagnostic, {
+    message: "no conversion to symbol",
+    phase: "compile",
+    source: "Playground",
+  });
+});

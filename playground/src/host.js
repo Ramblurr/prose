@@ -2,25 +2,30 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { load } from "@starfederation/datastar/bundles/datastar";
 import { PluginType } from "@starfederation/datastar/types";
-import { failureOutcome, renderOutcome } from "./render-controller.js";
-import { readinessState, renderRequest } from "./protocol.js";
+import { createRenderController } from "./render-controller.js";
 
 const stateEvent = "prose-playground-state";
 const auto = document.querySelector("#auto-render");
 const editorParent = document.querySelector("#source-editor");
 const preview = document.querySelector("#preview");
+const previewShell = document.querySelector("#preview-shell");
+const stalePreviewStatus = document.querySelector("#stale-preview-status");
 const resultNames = {
   preview: "Preview",
   html: "HTML",
   reader: "Reader",
   evaluated: "Evaluated",
 };
+const phaseNames = {
+  compile: "Compilation",
+  initialization: "Initialization",
+  "playground-evaluate": "Playground evaluation",
+  read: "Reader",
+  timeout: "Timeout",
+};
 
-let autoTimer;
-let currentRequestId = 0;
 let editor;
-let renderPending = true;
-let workerReady = false;
+let previewHtml = null;
 
 load({
   type: PluginType.Watcher,
@@ -51,70 +56,79 @@ function previewDocument(html) {
   return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"></head><body>${previewProjection(html)}</body></html>`;
 }
 
-function showOutcome(outcome) {
-  preview.srcdoc = previewDocument(outcome.previewHtml);
-  publish(outcome.signals);
+function diagnosticDetail(diagnostic) {
+  if (!diagnostic) return "";
+  const details = [];
+  if (diagnostic.source) details.push(`Source: ${diagnostic.source}`);
+  if (diagnostic.position) {
+    details.push(`line ${diagnostic.position.line}, column ${diagnostic.position.column}`);
+  }
+  if (diagnostic.range) {
+    details.push(
+      `range ${diagnostic.range.startLine}:${diagnostic.range.startColumn}`
+      + `–${diagnostic.range.endLine}:${diagnostic.range.endColumn}`,
+    );
+    details.push(`indexes ${diagnostic.range.startIndex}–${diagnostic.range.endIndex}`);
+  }
+  if (diagnostic.failedText) details.push(`failed text: ${JSON.stringify(diagnostic.failedText)}`);
+  if (diagnostic.expected) details.push(`expected ${diagnostic.expected}`);
+  return details.join(" · ");
 }
 
-function requestRender() {
-  clearTimeout(autoTimer);
-  if (!workerReady || !editor) {
-    renderPending = true;
-    return;
+function showControllerState(state) {
+  const output = state.output;
+  const nextPreviewHtml = output?.html ?? "";
+  if (nextPreviewHtml !== previewHtml) {
+    previewHtml = nextPreviewHtml;
+    preview.srcdoc = previewDocument(nextPreviewHtml);
   }
+  previewShell.classList.toggle("stale-preview", state.stale);
+  stalePreviewStatus.hidden = !state.stale;
 
-  renderPending = false;
-  currentRequestId += 1;
+  const workerStatuses = {
+    failed: "Initialization failed",
+    initializing: "Initializing…",
+    ready: "Ready",
+  };
+  const renderStatuses = {
+    failed: "Render failed",
+    rendered: "Rendered",
+    rendering: "Rendering…",
+    waiting: "Waiting to render",
+  };
+  const diagnostic = state.diagnostic;
   publish({
-    diagnosticMessage: "",
-    renderStatus: "Rendering…",
-    workerStatusDetail: `Rendering request ${currentRequestId}.`,
+    diagnosticDetail: diagnosticDetail(diagnostic),
+    diagnosticMessage: diagnostic?.message ?? "",
+    diagnosticPhase: diagnostic ? (phaseNames[diagnostic.phase] ?? diagnostic.phase) : "",
+    evaluatedResult: output?.evaluated ?? "",
+    htmlResult: output?.html ?? "",
+    readerResult: output?.reader ?? "",
+    renderStatus: renderStatuses[state.renderState],
+    stalePreview: state.stale,
+    workerReady: state.workerState === "ready",
+    workerState: state.workerState,
+    workerStatus: workerStatuses[state.workerState],
+    workerStatusDetail: diagnostic
+      ? `${phaseNames[diagnostic.phase] ?? diagnostic.phase}: ${diagnostic.message}`
+      : state.workerState === "ready"
+        ? "The render worker is ready."
+        : "Starting the isolated render worker.",
   });
-  worker.postMessage(renderRequest(currentRequestId, editor.state.doc.toString()));
+}
+
+const controller = createRenderController({
+  createWorker: () => new Worker(new URL("./worker.js", import.meta.url)),
+  onChange: showControllerState,
+});
+
+function requestRender() {
+  if (editor) controller.render(editor.state.doc.toString());
 }
 
 function scheduleAutoRender() {
-  clearTimeout(autoTimer);
-  if (auto.checked) autoTimer = setTimeout(requestRender, 350);
+  if (auto.checked && editor) controller.schedule(editor.state.doc.toString());
 }
-
-const worker = new Worker(new URL("./worker.js", import.meta.url));
-worker.addEventListener("message", ({ data }) => {
-  const readiness = readinessState(data);
-  if (readiness === "ready") {
-    workerReady = true;
-    publish({
-      workerReady: true,
-      workerState: "ready",
-      workerStatus: "Ready",
-      workerStatusDetail: "The render worker is ready.",
-    });
-    if (renderPending) requestRender();
-    return;
-  }
-  if (readiness === "failed") {
-    worker.terminate();
-    publish({
-      workerState: "failed",
-      workerStatus: "Initialization failed",
-    });
-    showOutcome(
-      failureOutcome("Initialization", "The worker uses an incompatible protocol version."),
-    );
-    return;
-  }
-  const outcome = renderOutcome(data, currentRequestId);
-  if (outcome) showOutcome(outcome);
-});
-worker.addEventListener("error", () => {
-  workerReady = false;
-  publish({
-    workerReady: false,
-    workerState: "failed",
-    workerStatus: "Initialization failed",
-  });
-  showOutcome(failureOutcome("Initialization", "The render worker could not initialize."));
-});
 
 function createEditor(source) {
   editor = new EditorView({
@@ -137,7 +151,7 @@ function createEditor(source) {
   });
   editorParent.removeAttribute("aria-busy");
   publish({ editorReady: true });
-  if (workerReady) requestRender();
+  requestRender();
 }
 
 async function loadDefaultExample() {
@@ -147,17 +161,19 @@ async function loadDefaultExample() {
     createEditor(await response.text());
   } catch (error) {
     publish({
-      workerState: "failed",
+      diagnosticDetail: "",
+      diagnosticMessage: error.message,
+      diagnosticPhase: "Initialization",
+      renderStatus: "Render failed",
       workerStatus: "Initialization failed",
     });
-    showOutcome(failureOutcome("Initialization", error.message));
   }
 }
 
 document.querySelector("#render").addEventListener("click", requestRender);
 auto.addEventListener("change", () => {
-  clearTimeout(autoTimer);
   if (auto.checked) scheduleAutoRender();
+  else controller.cancelScheduled();
 });
 for (const radio of document.querySelectorAll('input[name="result-view"]')) {
   radio.addEventListener("change", () => {
@@ -167,4 +183,5 @@ for (const radio of document.querySelectorAll('input[name="result-view"]')) {
   });
 }
 
+controller.start();
 void loadDefaultExample();

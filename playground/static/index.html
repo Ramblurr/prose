@@ -6,7 +6,7 @@
   <title>Prose Playground</title>
   <link rel="stylesheet" href="./assets/styles.css">
 </head>
-<body data-signals="{workerReady: false, editorReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.', renderStatus: 'Waiting to render', resultView: 'preview', resultHeading: 'Preview', htmlResult: '', readerResult: '', evaluatedResult: '', diagnosticPhase: '', diagnosticMessage: ''}">
+<body data-signals="{workerReady: false, editorReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.', renderStatus: 'Waiting to render', resultView: 'preview', resultHeading: 'Preview', htmlResult: '', readerResult: '', evaluatedResult: '', diagnosticPhase: '', diagnosticMessage: '', diagnosticDetail: '', stalePreview: false}">
   <header class="app-header">
     <div>
       <p class="eyebrow">Prose</p>
@@ -38,6 +38,7 @@
                data-attr-hidden="!$diagnosticMessage" hidden>
         <strong data-text="$diagnosticPhase">Render</strong>
         <span data-text="$diagnosticMessage"></span>
+        <small data-attr-hidden="!$diagnosticDetail" data-text="$diagnosticDetail" hidden></small>
       </section>
     </section>
 
@@ -59,7 +60,8 @@
       </fieldset>
 
       <div class="result-shell">
-        <section data-attr-hidden="$resultView !== 'preview'">
+        <section id="preview-shell" data-attr-hidden="$resultView !== 'preview'">
+          <p id="stale-preview-status" class="stale-preview-status" hidden>Stale preview</p>
           <iframe id="preview" sandbox="" referrerpolicy="no-referrer"
                   title="Rendered HTML Preview"></iframe>
         </section>

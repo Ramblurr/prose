@@ -52,6 +52,41 @@
       (recur cause (or (ex-message cause) message))
       message)))
 
+(defn- source-range [data]
+  (when (every? #(contains? data %)
+                [:start-index :end-index :start-line :start-column :end-line :end-column])
+    {:startIndex (:start-index data)
+     :endIndex (:end-index data)
+     :startLine (:start-line data)
+     :startColumn (:start-column data)
+     :endLine (:end-line data)
+     :endColumn (:end-column data)}))
+
+(defn- source-position [data]
+  (when (every? #(contains? data %) [:index :line :column])
+    {:index (:index data)
+     :line (:line data)
+     :column (:column data)}))
+
+(defn- normalize-diagnostic [phase error]
+  (let [data (ex-data error)
+        evaluation-form (:prose.alpha.evaluation/form data)
+        region (if (= :read phase)
+                 data
+                 (-> evaluation-form meta ::reader/parse-region))
+        range-data (source-range region)
+        position (source-position data)
+        message (if (= :read phase)
+                  (or (ex-message error) (.-message error) (str error))
+                  (deepest-message error))]
+    (cond-> {:phase (name phase)
+             :source "Playground"
+             :message message}
+      range-data (assoc :range range-data)
+      (and (= :read phase) position) (assoc :position position)
+      (and (= :read phase) (:text data)) (assoc :failedText (:text data))
+      (and (= :read phase) (:expected data)) (assoc :expected (:expected data)))))
+
 (defn- render [{:keys [requestId program]}]
   (let [phase (atom :read)]
     (try
@@ -72,8 +107,7 @@
         {:type "failed"
          :protocol protocol-version
          :requestId requestId
-         :diagnostic {:phase (name @phase)
-                      :message (deepest-message error)}}))))
+         :diagnostic (normalize-diagnostic @phase error)}))))
 
 (defn- post! [message]
   (.postMessage js/self (clj->js message)))

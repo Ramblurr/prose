@@ -180,6 +180,16 @@ kbd {
   width: 100%;
 }
 
+.stale-preview-status {
+  background: #fff3cd;
+  color: #614b00;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0;
+  padding: 0.45rem 0.7rem;
+}
+.stale-preview iframe { opacity: 0.55; }
+
 .result-shell pre {
   font: 0.85rem/1.5 ui-monospace, monospace;
   margin: 0;
