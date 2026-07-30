@@ -5,16 +5,21 @@ import { PluginType } from "@starfederation/datastar/types";
 import { createExampleController } from "./example-controller.js";
 import { atShorthand } from "./lozenge-shorthand.js";
 import { balancedSyntax, clojureLanguage, proseLanguage } from "./prose-language.js";
+import { previewDocument } from "./preview-document.js";
 import { createRenderController } from "./render-controller.js";
 
 const stateEvent = "prose-playground-state";
 const auto = document.querySelector("#auto-render");
+const appearanceRadios = [...document.querySelectorAll('input[name="appearance"]')];
 const companionEditorParent = document.querySelector("#companion-editor");
 const companionEditorSection = document.querySelector("#companion-editor-section");
 const editorStack = document.querySelector("#editor-stack");
 const exampleSelect = document.querySelector("#example-select");
+const emptyResult = document.querySelector("#empty-result");
 const preview = document.querySelector("#preview");
 const previewShell = document.querySelector("#preview-shell");
+const previewTheme = document.querySelector("#preview-theme");
+const resultShell = document.querySelector("#result-shell");
 const resetExample = document.querySelector("#reset-example");
 const sourceEditorParent = document.querySelector("#source-editor");
 const sourceHeading = document.querySelector("#source-heading");
@@ -40,12 +45,6 @@ const exampleDescriptors = [...exampleSelect.options].map((option) => ({
   id: option.value,
   title: option.textContent.trim(),
 }));
-const resultNames = {
-  preview: "Preview",
-  html: "HTML",
-  reader: "Reader",
-  evaluated: "Evaluated",
-};
 const phaseNames = {
   "companion-evaluate": "Companion evaluation",
   compile: "Compilation",
@@ -59,7 +58,14 @@ let activating = false;
 let companionEditor;
 let exampleController;
 let previewHtml = null;
+let previewProjectionKey = null;
 let sourceEditor;
+
+const preferredAppearance = window.matchMedia("(prefers-color-scheme: dark)").matches
+  ? "dark"
+  : "light";
+document.body.dataset.appearance = preferredAppearance;
+document.querySelector(`input[name="appearance"][value="${preferredAppearance}"]`).checked = true;
 
 load({
   type: PluginType.Watcher,
@@ -86,8 +92,16 @@ function previewProjection(html) {
   return template.innerHTML;
 }
 
-function previewDocument(html) {
-  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"></head><body>${previewProjection(html)}</body></html>`;
+function refreshPreview() {
+  const appearance = document.body.dataset.appearance;
+  const themeEnabled = previewTheme.checked;
+  const nextKey = JSON.stringify([appearance, themeEnabled, previewHtml]);
+  if (nextKey === previewProjectionKey) return;
+  previewProjectionKey = nextKey;
+  preview.srcdoc = previewDocument(previewProjection(previewHtml ?? ""), {
+    appearance,
+    themeEnabled,
+  });
 }
 
 function diagnosticDetail(diagnostic) {
@@ -111,11 +125,11 @@ function diagnosticDetail(diagnostic) {
 
 function showControllerState(state) {
   const output = state.output;
-  const nextPreviewHtml = output?.html ?? "";
-  if (nextPreviewHtml !== previewHtml) {
-    previewHtml = nextPreviewHtml;
-    preview.srcdoc = previewDocument(nextPreviewHtml);
-  }
+  previewHtml = output?.html ?? "";
+  refreshPreview();
+  const firstError = state.renderState === "failed" && output === null;
+  emptyResult.hidden = !firstError;
+  resultShell.classList.toggle("empty-result-visible", firstError);
   previewShell.classList.toggle("stale-preview", state.stale);
   stalePreviewStatus.hidden = !state.stale;
 
@@ -295,6 +309,8 @@ async function loadExamples() {
       renderStatus: "Render failed",
       workerStatus: "Initialization failed",
     });
+    emptyResult.hidden = false;
+    resultShell.classList.add("empty-result-visible");
   }
 }
 
@@ -311,11 +327,17 @@ auto.addEventListener("change", () => {
 });
 for (const radio of document.querySelectorAll('input[name="result-view"]')) {
   radio.addEventListener("change", () => {
-    if (radio.checked) {
-      publish({ resultHeading: resultNames[radio.value], resultView: radio.value });
-    }
+    if (radio.checked) publish({ resultView: radio.value });
   });
 }
+for (const radio of appearanceRadios) {
+  radio.addEventListener("change", () => {
+    if (!radio.checked) return;
+    document.body.dataset.appearance = radio.value;
+    refreshPreview();
+  });
+}
+previewTheme.addEventListener("change", refreshPreview);
 
 controller.start();
 void loadExamples();

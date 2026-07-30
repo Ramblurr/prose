@@ -6,48 +6,59 @@
   <title>Prose Playground</title>
   <link rel="stylesheet" href="./assets/styles.css">
 </head>
-<body data-signals="{workerReady: false, editorReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.', renderStatus: 'Waiting to render', resultView: 'preview', resultHeading: 'Preview', htmlResult: '', readerResult: '', evaluatedResult: '', diagnosticPhase: '', diagnosticMessage: '', diagnosticDetail: '', stalePreview: false}">
+<body data-signals="{workerReady: false, editorReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.', renderStatus: 'Waiting to render', resultView: 'preview', htmlResult: '', readerResult: '', evaluatedResult: '', diagnosticPhase: '', diagnosticMessage: '', diagnosticDetail: '', stalePreview: false}">
   <header class="app-header">
-    <div>
-      <p class="eyebrow">Prose</p>
-      <h1>Playground</h1>
+    <div class="brand-lockup">
+      <span class="brand-mark" aria-hidden="true">P</span>
+      <div><strong>Prose</strong><h1>Playground</h1></div>
     </div>
     <div class="actions">
-      <span id="worker-status" class="worker-status" data-state="initializing"
-            data-attr-data-state="$workerState" data-text="$workerStatus">Initializing…</span>
       <label class="auto-control"><input id="auto-render" type="checkbox" checked> Auto</label>
-      <button id="render" type="button"
+      <button id="render" class="primary-action" type="button"
               data-attr-disabled="!($workerReady && $editorReady)" disabled>Render</button>
+      <button id="settings-trigger" type="button" popovertarget="settings-popover"
+              aria-label="Playground settings">Settings</button>
+    </div>
+    <div id="settings-popover" class="settings-popover" popover="auto">
+      <h2>Playground settings</h2>
+      <fieldset>
+        <legend>Interface appearance</legend>
+        <label><input type="radio" name="appearance" value="light"> Light</label>
+        <label><input type="radio" name="appearance" value="dark"> Dark</label>
+      </fieldset>
+      <label class="setting-row" for="preview-theme">
+        <span><strong>Preview theme</strong><small>Presentation only; never included in generated HTML.</small></span>
+        <input id="preview-theme" type="checkbox" role="switch" checked>
+      </label>
     </div>
   </header>
 
+  <div class="status-bar">
+    <span id="worker-status" class="worker-status" data-state="initializing"
+          data-attr-data-state="$workerState" data-text="$workerStatus">Initializing…</span>
+    <span class="render-status" data-text="$renderStatus">Waiting to render</span>
+  </div>
+
   <main class="workspace">
     <section class="pane source-pane" aria-labelledby="source-heading">
-      <div class="pane-heading">
-        <div>
-          <p class="eyebrow">Source</p>
-          <h2 id="source-heading">Text and code</h2>
-        </div>
-        <div class="source-actions">
-          <label for="example-select">Example</label>
+      <div class="pane-heading source-heading">
+        <label class="example-control" for="example-select">
+          <span>Example</span>
           <select id="example-select" disabled>
-            <option value="text-and-code">
-              Text and code
-            </option>
-            <option value="semantic-html">
-              Semantic HTML
-            </option>
+            <option value="text-and-code">Text and code</option>
+            <option value="semantic-html">Semantic HTML</option>
             <option value="custom-tag-function">Custom tag function</option>
-            <option value="html-from-a-collection">
-              HTML from a collection
-            </option>
+            <option value="html-from-a-collection">HTML from a collection</option>
           </select>
-          <button id="toggle-companion" type="button"
-                  aria-controls="companion-editor-section"
+        </label>
+        <div class="source-actions">
+          <button id="toggle-companion" type="button" aria-controls="companion-editor-section"
                   aria-expanded="false" hidden>Show Companion namespace</button>
           <button id="reset-example" type="button" disabled>Reset</button>
         </div>
+        <h2 id="source-heading">Text and code</h2>
       </div>
+
       <div id="editor-stack" class="editor-stack">
         <section class="editor-section" aria-labelledby="source-editor-label">
           <h3 id="source-editor-label">Playground source</h3>
@@ -64,6 +75,7 @@
           <div id="companion-editor" class="editor-shell" aria-busy="true"></div>
         </section>
       </div>
+
       <section id="diagnostic" class="diagnostic"
                data-attr-hidden="!$diagnosticMessage" hidden>
         <strong data-text="$diagnosticPhase">Render</strong>
@@ -74,34 +86,33 @@
 
     <section class="pane result-pane" aria-labelledby="result-heading">
       <div class="pane-heading result-heading">
-        <div>
-          <p class="eyebrow">Result</p>
-          <h2 id="result-heading" data-text="$resultHeading">Preview</h2>
-        </div>
-        <span class="render-status" data-text="$renderStatus">Waiting to render</span>
+        <h2 id="result-heading">Result</h2>
+        <fieldset class="result-choices">
+          <legend>Result view</legend>
+          <label><input type="radio" name="result-view" value="preview" checked><span>Preview</span></label>
+          <label><input type="radio" name="result-view" value="html"><span>HTML</span></label>
+          <label><input type="radio" name="result-view" value="reader"><span>Reader</span></label>
+          <label><input type="radio" name="result-view" value="evaluated"><span>Evaluated</span></label>
+        </fieldset>
       </div>
 
-      <fieldset class="result-choices">
-        <legend>Result view</legend>
-        <label><input type="radio" name="result-view" value="preview" checked> Preview</label>
-        <label><input type="radio" name="result-view" value="html"> HTML</label>
-        <label><input type="radio" name="result-view" value="reader"> Reader</label>
-        <label><input type="radio" name="result-view" value="evaluated"> Evaluated</label>
-      </fieldset>
-
-      <div class="result-shell">
-        <section id="preview-shell" data-attr-hidden="$resultView !== 'preview'">
+      <div id="result-shell" class="result-shell">
+        <div id="empty-result" class="empty-result" hidden>
+          <strong>No result yet</strong>
+          <span>Resolve the Render failure in the source to create the first result.</span>
+        </div>
+        <section id="preview-shell" class="result-content" data-attr-hidden="$resultView !== 'preview'">
           <p id="stale-preview-status" class="stale-preview-status" hidden>Stale preview</p>
           <iframe id="preview" sandbox="" referrerpolicy="no-referrer"
                   title="Rendered HTML Preview"></iframe>
         </section>
-        <section data-attr-hidden="$resultView !== 'html'" hidden>
+        <section class="result-content" data-attr-hidden="$resultView !== 'html'" hidden>
           <pre id="html-result" data-text="$htmlResult"></pre>
         </section>
-        <section data-attr-hidden="$resultView !== 'reader'" hidden>
+        <section class="result-content" data-attr-hidden="$resultView !== 'reader'" hidden>
           <pre id="reader-result" data-text="$readerResult"></pre>
         </section>
-        <section data-attr-hidden="$resultView !== 'evaluated'" hidden>
+        <section class="result-content" data-attr-hidden="$resultView !== 'evaluated'" hidden>
           <pre id="evaluated-result" data-text="$evaluatedResult"></pre>
         </section>
       </div>
