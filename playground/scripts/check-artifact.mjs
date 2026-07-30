@@ -7,6 +7,8 @@ const assets = new URL("assets/", dist);
 const examplePaths = [
   "examples/01-text-and-code.prose",
   "examples/02-semantic-html.prose",
+  "examples/03-custom-tag-function.prose",
+  "examples/playground/example_tags.clj",
   "examples/04-html-from-a-collection.prose",
 ];
 const required = [

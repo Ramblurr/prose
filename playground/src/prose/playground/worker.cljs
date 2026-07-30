@@ -6,7 +6,8 @@
     [fr.jeremyschoffen.prose.alpha.eval.sci :as eval-sci]
     [fr.jeremyschoffen.prose.alpha.out.html.compiler :as html]
     [fr.jeremyschoffen.prose.alpha.out.html.tags]
-    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]
+    [sci.core :as sci]))
 
 (def ^:private protocol-version 1)
 
@@ -71,30 +72,42 @@
 (defn- normalize-diagnostic [phase error]
   (let [data (ex-data error)
         evaluation-form (:prose.alpha.evaluation/form data)
-        region (if (= :read phase)
-                 data
-                 (-> evaluation-form meta ::reader/parse-region))
+        region (case phase
+                 :read data
+                 :playground-evaluate (-> evaluation-form meta ::reader/parse-region)
+                 nil)
         range-data (source-range region)
-        position (source-position data)
+        position (cond
+                   (= :read phase) (source-position data)
+                   (and (= :companion-evaluate phase)
+                        (number? (:line data))
+                        (number? (:column data)))
+                   {:line (:line data)
+                    :column (:column data)})
         message (if (= :read phase)
                   (or (ex-message error) (.-message error) (str error))
                   (deepest-message error))]
     (cond-> {:phase (name phase)
-             :source "Playground"
+             :source (if (= :companion-evaluate phase)
+                       "Companion namespace"
+                       "Playground source")
              :message message}
       range-data (assoc :range range-data)
-      (and (= :read phase) position) (assoc :position position)
+      position (assoc :position position)
       (and (= :read phase) (:text data)) (assoc :failedText (:text data))
       (and (= :read phase) (:expected data)) (assoc :expected (:expected data)))))
 
 (defn- render [{:keys [requestId program]}]
-  (let [phase (atom :read)]
+  (let [companion-source (get-in program [:companion :source])
+        phase (atom (if companion-source :companion-evaluate :read))]
     (try
-      (let [forms (reader/read-from-string (:source program))
+      (let [context (eval-sci/fork-sci-ctxt base-context)
+            _ (when companion-source
+                (sci/eval-string* context companion-source))
+            _ (reset! phase :read)
+            forms (reader/read-from-string (:source program))
             _ (reset! phase :playground-evaluate)
-            evaluated (eval-sci/eval-forms-in-temp-ns
-                        (eval-sci/fork-sci-ctxt base-context)
-                        forms)
+            evaluated (eval-sci/eval-forms-in-temp-ns context forms)
             _ (reset! phase :compile)
             generated-html (html/compile! evaluated)]
         {:type "rendered"

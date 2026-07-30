@@ -7,7 +7,10 @@ export function createExampleController({ examples, onActivate, storage }) {
   let state;
 
   function canonicalState(example) {
+    const companion = example.companion ?? null;
     return {
+      companion,
+      companionVisible: companion !== null,
       selectedExample: example.id,
       source: example.source,
       title: example.title,
@@ -17,6 +20,8 @@ export function createExampleController({ examples, onActivate, storage }) {
   function persist() {
     try {
       storage?.setItem(persistenceKey, JSON.stringify({
+        companion: state.companion,
+        companionVisible: state.companionVisible,
         selectedExample: state.selectedExample,
         source: state.source,
         version: persistenceVersion,
@@ -31,7 +36,16 @@ export function createExampleController({ examples, onActivate, storage }) {
       const record = JSON.parse(storage?.getItem(persistenceKey));
       const example = examplesById.get(record?.selectedExample);
       if (record?.version === persistenceVersion && typeof record.source === "string" && example) {
-        return { ...canonicalState(example), source: record.source };
+        const canonical = canonicalState(example);
+        if (canonical.companion === null) return { ...canonical, source: record.source };
+        if (typeof record.companion === "string" && typeof record.companionVisible === "boolean") {
+          return {
+            ...canonical,
+            companion: record.companion,
+            companionVisible: record.companionVisible,
+            source: record.source,
+          };
+        }
       }
     } catch {
       // Invalid or unavailable storage falls back to the default Example.
@@ -47,7 +61,12 @@ export function createExampleController({ examples, onActivate, storage }) {
   }
 
   return {
-    edit(source) {
+    editCompanion(companion) {
+      if (state.companion === null) return;
+      state = { ...state, companion };
+      persist();
+    },
+    editSource(source) {
       state = { ...state, source };
       persist();
     },
@@ -57,6 +76,14 @@ export function createExampleController({ examples, onActivate, storage }) {
     },
     select(id) {
       return activate(canonicalState(examplesById.get(id)));
+    },
+    setCompanionVisible(companionVisible) {
+      state = {
+        ...state,
+        companionVisible: state.companion !== null && companionVisible,
+      };
+      persist();
+      return state;
     },
     start() {
       state = restoredState();

@@ -90,7 +90,7 @@ test("queues work until readiness and starts its deadline only after posting", (
   const controller = runtime.controller();
 
   controller.start();
-  controller.render("initial source");
+  controller.render("initial source", "companion source");
   assert.deepEqual(runtime.workers[0].messages, []);
   assert.deepEqual(runtime.timerDelays(), []);
 
@@ -100,7 +100,10 @@ test("queues work until readiness and starts its deadline only after posting", (
       type: "render",
       protocol: 1,
       requestId: 1,
-      program: { source: "initial source", companion: null },
+      program: {
+        source: "initial source",
+        companion: { source: "companion source" },
+      },
     },
   ]);
   assert.deepEqual(runtime.timerDelays(), [2000]);
@@ -127,19 +130,25 @@ test("debounces Auto requests and renders explicit requests immediately", () => 
   controller.start();
   runtime.workers[0].emit("message", ready);
 
-  controller.schedule("first edit");
-  controller.schedule("second edit");
+  controller.schedule("first edit", "first companion");
+  controller.schedule("second edit", "second companion");
   assert.deepEqual(runtime.timerDelays(), [350]);
   assert.deepEqual(runtime.workers[0].messages, []);
 
   runtime.runTimer(350);
-  assert.equal(runtime.workers[0].messages[0].program.source, "second edit");
+  assert.deepEqual(runtime.workers[0].messages[0].program, {
+    companion: { source: "second companion" },
+    source: "second edit",
+  });
 
   runtime.workers[0].emit("message", rendered(1));
-  controller.schedule("obsolete edit");
-  controller.render("explicit edit");
+  controller.schedule("obsolete edit", "obsolete companion");
+  controller.render("explicit edit", "explicit companion");
   assert.deepEqual(runtime.timerDelays(), [2000]);
-  assert.equal(runtime.workers[0].messages.at(-1).program.source, "explicit edit");
+  assert.deepEqual(runtime.workers[0].messages.at(-1).program, {
+    companion: { source: "explicit companion" },
+    source: "explicit edit",
+  });
 });
 
 test("terminates timed-out work, preserves stale output, and recovers with a new worker", () => {

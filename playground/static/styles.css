@@ -116,7 +116,19 @@ h3 { font-size: 0.9rem; }
 }
 
 .pane-heading { min-height: 3rem; }
-.editor-section { margin-top: 1rem; }
+.editor-stack { margin-top: 1rem; }
+
+.editor-stack.companion-visible {
+  display: grid;
+  gap: 1rem;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.editor-stack.companion-visible .editor-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 
 .editor-shell,
 .result-shell {
@@ -133,6 +145,11 @@ h3 { font-size: 0.9rem; }
 }
 
 .editor-shell .cm-editor { min-height: 28rem; }
+.editor-stack.companion-visible .editor-shell,
+.editor-stack.companion-visible .editor-shell .cm-editor {
+  flex: 1;
+  min-height: 13rem;
+}
 .editor-shell .cm-scroller { font-family: ui-monospace, monospace; }
 .editor-shell .cm-gutters {
   background: #292a25;

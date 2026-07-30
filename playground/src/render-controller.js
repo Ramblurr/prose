@@ -92,7 +92,7 @@ export function createRenderController({
       requestId: request.id,
       stale: false,
     });
-    worker.postMessage(renderRequest(request.id, request.source));
+    worker.postMessage(renderRequest(request.id, request.source, request.companionSource));
     startDeadline(request.id);
   }
 
@@ -163,9 +163,9 @@ export function createRenderController({
     }
   }
 
-  function render(source) {
+  function render(source, companionSource = null) {
     clearAutoTimer();
-    const request = { id: state.requestId + 1, source };
+    const request = { companionSource, id: state.requestId + 1, source };
     pendingRequest = request;
     publish({ diagnostic: null, renderState: "waiting", requestId: request.id });
 
@@ -185,11 +185,11 @@ export function createRenderController({
     cancelScheduled: clearAutoTimer,
     getState: () => state,
     render,
-    schedule(source) {
+    schedule(source, companionSource = null) {
       clearAutoTimer();
       autoTimer = setTimer(() => {
         autoTimer = null;
-        render(source);
+        render(source, companionSource);
       }, autoDelay);
     },
     start() {

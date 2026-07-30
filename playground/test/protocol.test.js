@@ -12,7 +12,7 @@ test("rejects an incompatible readiness handshake", () => {
   assert.equal(readinessState({ type: "rendered", protocol: 1 }), null);
 });
 
-test("creates a versioned complete single-source Render request", () => {
+test("creates versioned complete Render requests as plain data", () => {
   assert.deepEqual(renderRequest(7, "Hello"), {
     type: "render",
     protocol: 1,
@@ -20,6 +20,15 @@ test("creates a versioned complete single-source Render request", () => {
     program: {
       source: "Hello",
       companion: null,
+    },
+  });
+  assert.deepEqual(renderRequest(8, "◊status-label[:ready]", "(ns playground.example-tags)"), {
+    type: "render",
+    protocol: 1,
+    requestId: 8,
+    program: {
+      source: "◊status-label[:ready]",
+      companion: { source: "(ns playground.example-tags)" },
     },
   });
 });

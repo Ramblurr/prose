@@ -3,9 +3,30 @@ import test from "node:test";
 import { createExampleController } from "../src/example-controller.js";
 
 const canonicalExamples = [
-  { id: "text-and-code", source: "Text canonical\n", title: "Text and code" },
-  { id: "semantic-html", source: "Semantic canonical\n", title: "Semantic HTML" },
-  { id: "html-from-a-collection", source: "Collection canonical\n", title: "HTML from a collection" },
+  {
+    companion: null,
+    id: "text-and-code",
+    source: "Text canonical\n",
+    title: "Text and code",
+  },
+  {
+    companion: null,
+    id: "semantic-html",
+    source: "Semantic canonical\n",
+    title: "Semantic HTML",
+  },
+  {
+    companion: "(ns playground.example-tags)\n",
+    id: "custom-tag-function",
+    source: "Custom canonical\n",
+    title: "Custom tag function",
+  },
+  {
+    companion: null,
+    id: "html-from-a-collection",
+    source: "Collection canonical\n",
+    title: "HTML from a collection",
+  },
 ];
 
 class MemoryStorage {
@@ -23,67 +44,93 @@ class MemoryStorage {
 }
 
 function playground(storage = new MemoryStorage()) {
-  const visible = { renders: [], selectedExample: null, source: null };
+  const activations = [];
   const controller = createExampleController({
     examples: canonicalExamples,
-    onActivate({ selectedExample, source }) {
-      visible.selectedExample = selectedExample;
-      visible.source = source;
-      visible.renders.push(source);
+    onActivate(program) {
+      activations.push(structuredClone(program));
     },
     storage,
   });
-  return { controller, storage, visible };
+  return { activations, controller, storage };
 }
 
-test("selects and exactly resets a canonical Example", () => {
-  const { controller, visible } = playground();
+test("selects, edits, hides, and exactly resets the paired Example", () => {
+  const { activations, controller } = playground();
   controller.start();
-  controller.edit("Edited text\n");
-  controller.select("semantic-html");
+  controller.select("custom-tag-function");
+  controller.editSource("Authored Playground source\n");
+  controller.editCompanion("(ns playground.example-tags)\n(def edited true)\n");
+  controller.setCompanionVisible(false);
 
-  assert.deepEqual(visible, {
-    renders: ["Text canonical\n", "Semantic canonical\n"],
-    selectedExample: "semantic-html",
-    source: "Semantic canonical\n",
+  assert.deepEqual(controller.getState(), {
+    companion: "(ns playground.example-tags)\n(def edited true)\n",
+    companionVisible: false,
+    selectedExample: "custom-tag-function",
+    source: "Authored Playground source\n",
+    title: "Custom tag function",
   });
 
-  controller.edit("Edited semantic source\n");
   controller.reset();
+  assert.deepEqual(controller.getState(), {
+    companion: "(ns playground.example-tags)\n",
+    companionVisible: true,
+    selectedExample: "custom-tag-function",
+    source: "Custom canonical\n",
+    title: "Custom tag function",
+  });
+  assert.deepEqual(activations.map(({ selectedExample }) => selectedExample), [
+    "text-and-code",
+    "custom-tag-function",
+    "custom-tag-function",
+  ]);
+});
 
-  assert.deepEqual(visible, {
-    renders: ["Text canonical\n", "Semantic canonical\n", "Semantic canonical\n"],
+test("switching to a single-source Example clears and hides the Companion", () => {
+  const { controller } = playground();
+  controller.start();
+  controller.select("custom-tag-function");
+  controller.editCompanion("(ns playground.example-tags)\n(def leaked true)\n");
+
+  controller.select("semantic-html");
+
+  assert.deepEqual(controller.getState(), {
+    companion: null,
+    companionVisible: false,
     selectedExample: "semantic-html",
     source: "Semantic canonical\n",
+    title: "Semantic HTML",
   });
 });
 
-test("reload restores authored source and Reset target but activates a fresh Render", () => {
+test("reload restores the complete authored program and activates a fresh Render", () => {
   const first = playground();
   first.controller.start();
-  first.controller.select("html-from-a-collection");
-  first.controller.edit("Authored collection source\n");
+  first.controller.select("custom-tag-function");
+  first.controller.editSource("Authored custom source\n");
+  first.controller.editCompanion("(ns playground.example-tags)\n(def authored true)\n");
+  first.controller.setCompanionVisible(false);
 
   const reloaded = playground(first.storage);
-  assert.deepEqual(reloaded.visible, {
-    renders: [],
-    selectedExample: null,
-    source: null,
-  });
+  assert.deepEqual(reloaded.activations, []);
 
   reloaded.controller.start();
-  assert.deepEqual(reloaded.visible, {
-    renders: ["Authored collection source\n"],
-    selectedExample: "html-from-a-collection",
-    source: "Authored collection source\n",
-  });
+  assert.deepEqual(reloaded.activations, [{
+    companion: "(ns playground.example-tags)\n(def authored true)\n",
+    companionVisible: false,
+    selectedExample: "custom-tag-function",
+    source: "Authored custom source\n",
+    title: "Custom tag function",
+  }]);
 
   reloaded.controller.reset();
-  assert.equal(reloaded.visible.source, "Collection canonical\n");
-  assert.deepEqual(reloaded.visible.renders, [
-    "Authored collection source\n",
-    "Collection canonical\n",
-  ]);
+  assert.deepEqual(reloaded.controller.getState(), {
+    companion: "(ns playground.example-tags)\n",
+    companionVisible: true,
+    selectedExample: "custom-tag-function",
+    source: "Custom canonical\n",
+    title: "Custom tag function",
+  });
 });
 
 test("reload discards persisted transient state", () => {
@@ -98,31 +145,40 @@ test("reload discards persisted transient state", () => {
     version: 1,
     workerState: "ready",
   }));
-  const { controller, visible } = playground(storage);
+  const { activations, controller } = playground(storage);
 
   controller.start();
 
   assert.deepEqual(controller.getState(), {
+    companion: null,
+    companionVisible: false,
     selectedExample: "semantic-html",
     source: "Restored authored source\n",
     title: "Semantic HTML",
   });
-  assert.deepEqual(visible.renders, ["Restored authored source\n"]);
+  assert.deepEqual(activations, [controller.getState()]);
 });
 
-test("corrupt, unsupported, or unavailable persistence falls back safely", () => {
+test("invalid paired persistence and unavailable storage fall back safely", () => {
   const records = [
     "not json",
     JSON.stringify({ version: 2, source: "unsupported", selectedExample: "semantic-html" }),
     JSON.stringify({ version: 1, source: 42, selectedExample: "semantic-html" }),
     JSON.stringify({ version: 1, source: "unknown", selectedExample: "missing" }),
+    JSON.stringify({
+      companion: null,
+      companionVisible: true,
+      selectedExample: "custom-tag-function",
+      source: "incomplete custom program",
+      version: 1,
+    }),
   ];
 
   for (const record of records) {
-    const { controller, visible } = playground(new MemoryStorage(record));
+    const { controller } = playground(new MemoryStorage(record));
     assert.doesNotThrow(() => controller.start());
-    assert.equal(visible.selectedExample, "text-and-code");
-    assert.equal(visible.source, "Text canonical\n");
+    assert.equal(controller.getState().selectedExample, "text-and-code");
+    assert.equal(controller.getState().companion, null);
   }
 
   const unavailableStorage = {
@@ -133,8 +189,8 @@ test("corrupt, unsupported, or unavailable persistence falls back safely", () =>
       throw new Error("Storage unavailable");
     },
   };
-  const { controller, visible } = playground(unavailableStorage);
+  const { controller } = playground(unavailableStorage);
   assert.doesNotThrow(() => controller.start());
-  assert.doesNotThrow(() => controller.edit("Still editable\n"));
-  assert.equal(visible.source, "Text canonical\n");
+  assert.doesNotThrow(() => controller.editSource("Still editable\n"));
+  assert.equal(controller.getState().source, "Still editable\n");
 });

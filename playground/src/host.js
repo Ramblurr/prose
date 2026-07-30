@@ -7,25 +7,36 @@ import { createRenderController } from "./render-controller.js";
 
 const stateEvent = "prose-playground-state";
 const auto = document.querySelector("#auto-render");
-const editorParent = document.querySelector("#source-editor");
+const companionEditorParent = document.querySelector("#companion-editor");
+const companionEditorSection = document.querySelector("#companion-editor-section");
+const editorStack = document.querySelector("#editor-stack");
 const exampleSelect = document.querySelector("#example-select");
 const preview = document.querySelector("#preview");
 const previewShell = document.querySelector("#preview-shell");
 const resetExample = document.querySelector("#reset-example");
+const sourceEditorParent = document.querySelector("#source-editor");
 const sourceHeading = document.querySelector("#source-heading");
 const stalePreviewStatus = document.querySelector("#stale-preview-status");
+const toggleCompanion = document.querySelector("#toggle-companion");
 const exampleUrls = {
-  "html-from-a-collection": new URL(
-    "../examples/04-html-from-a-collection.prose",
-    import.meta.url,
-  ),
-  "semantic-html": new URL("../examples/02-semantic-html.prose", import.meta.url),
-  "text-and-code": new URL("../examples/01-text-and-code.prose", import.meta.url),
+  "custom-tag-function": {
+    companion: new URL("../examples/playground/example_tags.clj", import.meta.url),
+    source: new URL("../examples/03-custom-tag-function.prose", import.meta.url),
+  },
+  "html-from-a-collection": {
+    source: new URL("../examples/04-html-from-a-collection.prose", import.meta.url),
+  },
+  "semantic-html": {
+    source: new URL("../examples/02-semantic-html.prose", import.meta.url),
+  },
+  "text-and-code": {
+    source: new URL("../examples/01-text-and-code.prose", import.meta.url),
+  },
 };
 const exampleDescriptors = [...exampleSelect.options].map((option) => ({
+  ...exampleUrls[option.value],
   id: option.value,
   title: option.textContent.trim(),
-  url: exampleUrls[option.value],
 }));
 const resultNames = {
   preview: "Preview",
@@ -34,6 +45,7 @@ const resultNames = {
   evaluated: "Evaluated",
 };
 const phaseNames = {
+  "companion-evaluate": "Companion evaluation",
   compile: "Compilation",
   initialization: "Initialization",
   "playground-evaluate": "Playground evaluation",
@@ -41,9 +53,11 @@ const phaseNames = {
   timeout: "Timeout",
 };
 
+let activating = false;
+let companionEditor;
 let exampleController;
-let editor;
 let previewHtml = null;
+let sourceEditor;
 
 load({
   type: PluginType.Watcher,
@@ -140,25 +154,37 @@ const controller = createRenderController({
   onChange: showControllerState,
 });
 
+function currentProgram() {
+  const hasCompanion = exampleController.getState().companion !== null;
+  return {
+    companion: hasCompanion ? companionEditor.state.doc.toString() : null,
+    source: sourceEditor.state.doc.toString(),
+  };
+}
+
 function requestRender() {
-  if (editor) controller.render(editor.state.doc.toString());
+  if (!sourceEditor || !companionEditor) return;
+  const program = currentProgram();
+  controller.render(program.source, program.companion);
 }
 
 function scheduleAutoRender() {
-  if (auto.checked && editor) controller.schedule(editor.state.doc.toString());
+  if (!auto.checked || !sourceEditor || !companionEditor) return;
+  const program = currentProgram();
+  controller.schedule(program.source, program.companion);
 }
 
-function createEditor(source) {
-  editor = new EditorView({
+function createEditor({ label, onEdit, parent, source }) {
+  return new EditorView({
     doc: source,
     extensions: [
       lineNumbers(),
       history(),
       EditorView.lineWrapping,
-      EditorView.contentAttributes.of({ "aria-labelledby": "source-editor-label" }),
+      EditorView.contentAttributes.of({ "aria-labelledby": label }),
       EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
-          exampleController.edit(update.state.doc.toString());
+        if (update.docChanged && !activating) {
+          onEdit(update.state.doc.toString());
           scheduleAutoRender();
         }
       }),
@@ -168,21 +194,59 @@ function createEditor(source) {
         ...historyKeymap,
       ]),
     ],
-    parent: editorParent,
+    parent,
   });
-  editorParent.removeAttribute("aria-busy");
-  publish({ editorReady: true });
-  requestRender();
 }
 
-function activateExample({ selectedExample, source, title }) {
-  exampleSelect.value = selectedExample;
-  sourceHeading.textContent = title;
-  if (!editor) {
-    createEditor(source);
-    return;
-  }
+function companionPresentation({ companion, companionVisible }) {
+  const available = companion !== null;
+  const visible = available && companionVisible;
+  companionEditorSection.hidden = !visible;
+  editorStack.classList.toggle("companion-visible", visible);
+  toggleCompanion.hidden = !available;
+  toggleCompanion.setAttribute("aria-expanded", String(visible));
+  toggleCompanion.textContent = visible
+    ? "Hide Companion namespace"
+    : "Show Companion namespace";
+}
+
+function createEditors(program) {
+  sourceEditor = createEditor({
+    label: "source-editor-label",
+    onEdit: (source) => exampleController.editSource(source),
+    parent: sourceEditorParent,
+    source: program.source,
+  });
+  companionEditor = createEditor({
+    label: "companion-editor-label",
+    onEdit: (source) => exampleController.editCompanion(source),
+    parent: companionEditorParent,
+    source: program.companion ?? "",
+  });
+  sourceEditorParent.removeAttribute("aria-busy");
+  companionEditorParent.removeAttribute("aria-busy");
+  publish({ editorReady: true });
+}
+
+function replaceDocument(editor, source) {
   editor.dispatch({ changes: { from: 0, insert: source, to: editor.state.doc.length } });
+}
+
+function activateExample(program) {
+  exampleSelect.value = program.selectedExample;
+  sourceHeading.textContent = program.title;
+  if (!sourceEditor) {
+    createEditors(program);
+  } else {
+    activating = true;
+    try {
+      replaceDocument(sourceEditor, program.source);
+      replaceDocument(companionEditor, program.companion ?? "");
+    } finally {
+      activating = false;
+    }
+  }
+  companionPresentation(program);
   requestRender();
 }
 
@@ -194,13 +258,19 @@ function browserStorage() {
   }
 }
 
+async function exampleText(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Example request failed with HTTP ${response.status}.`);
+  return response.text();
+}
+
 async function loadExamples() {
   try {
-    const examples = await Promise.all(exampleDescriptors.map(async (descriptor) => {
-      const response = await fetch(descriptor.url);
-      if (!response.ok) throw new Error(`Example request failed with HTTP ${response.status}.`);
-      return { ...descriptor, source: await response.text() };
-    }));
+    const examples = await Promise.all(exampleDescriptors.map(async (descriptor) => ({
+      ...descriptor,
+      companion: descriptor.companion ? await exampleText(descriptor.companion) : null,
+      source: await exampleText(descriptor.source),
+    })));
     exampleController = createExampleController({
       examples,
       onActivate: activateExample,
@@ -222,6 +292,10 @@ async function loadExamples() {
 
 exampleSelect.addEventListener("change", () => exampleController.select(exampleSelect.value));
 resetExample.addEventListener("click", () => exampleController.reset());
+toggleCompanion.addEventListener("click", () => {
+  const state = exampleController.getState();
+  companionPresentation(exampleController.setCompanionVisible(!state.companionVisible));
+});
 document.querySelector("#render").addEventListener("click", requestRender);
 auto.addEventListener("change", () => {
   if (auto.checked) scheduleAutoRender();

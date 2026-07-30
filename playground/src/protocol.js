@@ -5,14 +5,14 @@ export function readinessState(message) {
   return message.protocol === protocolVersion ? "ready" : "failed";
 }
 
-export function renderRequest(requestId, source) {
+export function renderRequest(requestId, source, companionSource = null) {
   return {
     type: "render",
     protocol: protocolVersion,
     requestId,
     program: {
       source,
-      companion: null,
+      companion: companionSource === null ? null : { source: companionSource },
     },
   };
 }

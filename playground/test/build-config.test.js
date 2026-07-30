@@ -59,11 +59,13 @@ test("builds without installing and disables worker shims", async () => {
   assert.match(build, /:process-shim false/);
 });
 
-test("keeps the three single-source Examples canonical and ordered", async () => {
+test("keeps the four complete Example programs canonical and ordered", async () => {
   assert.deepEqual(
     await Promise.all([
       text("../examples/01-text-and-code.prose"),
       text("../examples/02-semantic-html.prose"),
+      text("../examples/03-custom-tag-function.prose"),
+      text("../examples/playground/example_tags.clj"),
       text("../examples/04-html-from-a-collection.prose"),
     ]),
     [
@@ -88,6 +90,22 @@ Two plus three is ◊(+ 2 3).
   }
 }
 `,
+      `◊(require '[playground.example-tags :refer [status-label]])
+
+Build status: ◊status-label[:ready]
+`,
+      `(ns playground.example-tags
+  (:require
+   [clojure.string :as str]
+   [fr.jeremyschoffen.prose.alpha.document.lib :as lib]))
+
+(defn status-label [status]
+  (let [label (name status)]
+    (lib/xml-tag :mark
+                 {:class "status-label"
+                  :data-length (count label)}
+                 (str/upper-case label))))
+`,
       `◊(require '[fr.jeremyschoffen.prose.alpha.out.html.tags :refer [h2 li ul]])
 
 ◊h2{Render stages}
@@ -102,7 +120,7 @@ Two plus three is ◊(+ 2 3).
   );
 });
 
-test("provides the pre-baked single-source Example controls without export actions", async () => {
+test("provides the fixed paired-source controls without project or export actions", async () => {
   const html = await text("static/index.html");
   const options = [...html.matchAll(
     /<option value="([^"]+)">([^<]+)<\/option>/g,
@@ -111,8 +129,15 @@ test("provides the pre-baked single-source Example controls without export actio
   assert.deepEqual(options, [
     ["text-and-code", "Text and code"],
     ["semantic-html", "Semantic HTML"],
+    ["custom-tag-function", "Custom tag function"],
     ["html-from-a-collection", "HTML from a collection"],
   ]);
+  assert.match(html, /<h3 id="source-editor-label">Playground source<\/h3>/);
+  assert.match(html, /<h3 id="companion-editor-label">Companion namespace<\/h3>/);
+  assert.match(html, /<button id="toggle-companion"[^>]+>Show Companion namespace<\/button>/);
   assert.match(html, /<button id="reset-example" type="button" disabled>Reset<\/button>/);
-  assert.doesNotMatch(html, />\s*(?:Copy|Download|Export|Package|Publish|Share)\s*</i);
+  assert.doesNotMatch(
+    html,
+    />\s*(?:Add source|Copy|Download|Export|Package|Publish|Share)\s*</i,
+  );
 });

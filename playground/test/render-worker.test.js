@@ -8,6 +8,14 @@ const defaultExample = await readFile(
   new URL("../../examples/01-text-and-code.prose", import.meta.url),
   "utf8",
 );
+const customExample = await readFile(
+  new URL("../../examples/03-custom-tag-function.prose", import.meta.url),
+  "utf8",
+);
+const customCompanion = await readFile(
+  new URL("../../examples/playground/example_tags.clj", import.meta.url),
+  "utf8",
+);
 
 function nextMessage(worker) {
   return new Promise((resolve, reject) => {
@@ -38,8 +46,8 @@ async function readyWorker(t) {
   return worker;
 }
 
-async function render(worker, requestId, source) {
-  worker.postMessage(renderRequest(requestId, source));
+async function render(worker, requestId, source, companionSource = null) {
+  worker.postMessage(renderRequest(requestId, source, companionSource));
   return nextMessage(worker);
 }
 
@@ -121,6 +129,91 @@ test("renders Semantic HTML and HTML from a collection through the production wo
       "<li>Read source</li><li>Evaluate forms</li><li>Compile HTML</li>",
       "\n</ul>\n",
     ].join(""),
+  });
+});
+
+test("evaluates the canonical Companion first and renders its derived tag", async (t) => {
+  const worker = await readyWorker(t);
+
+  assert.deepEqual(await render(worker, 4, customExample, customCompanion), {
+    type: "rendered",
+    protocol: 1,
+    requestId: 4,
+    reader: [
+      "[(require (quote [playground.example-tags :refer [status-label]])) ",
+      "\"\\n\\nBuild status: \" (status-label :ready) \"\\n\"]",
+    ].join(""),
+    evaluated: [
+      "[nil \"\\n\\nBuild status: \" {:tag :mark, ",
+      ":attrs {:class \"status-label\", :data-length 5}, ",
+      ":content [\"READY\"], :type :tag} \"\\n\"]",
+    ].join(""),
+    html: "\n\nBuild status: <mark class=\"status-label\" data-length=\"5\">READY</mark>\n",
+  });
+});
+
+test("uses Companion edits for one fresh Render without leaking definitions", async (t) => {
+  const worker = await readyWorker(t);
+  const editedCompanion = customCompanion.replace(
+    "(str/upper-case label)",
+    "(str \"EDITED-\" (str/upper-case label))",
+  );
+
+  const edited = await render(worker, 5, customExample, editedCompanion);
+  const withoutCompanion = await render(worker, 6, customExample);
+
+  assert.equal(
+    edited.html,
+    "\n\nBuild status: <mark class=\"status-label\" data-length=\"5\">EDITED-READY</mark>\n",
+  );
+  assert.deepEqual(
+    {
+      phase: withoutCompanion.diagnostic?.phase,
+      source: withoutCompanion.diagnostic?.source,
+      type: withoutCompanion.type,
+    },
+    {
+      phase: "playground-evaluate",
+      source: "Playground source",
+      type: "failed",
+    },
+  );
+});
+
+test("labels Companion and Playground failures with only available locations", async (t) => {
+  const worker = await readyWorker(t);
+  const companionFailure = await render(
+    worker,
+    7,
+    customExample,
+    "(ns playground.example-tags)\n(defn broken [x]",
+  );
+  const playgroundSource = "before ◊|missing-symbol";
+  const playgroundFailure = await render(
+    worker,
+    8,
+    playgroundSource,
+    customCompanion,
+  );
+
+  assert.deepEqual(companionFailure.diagnostic, {
+    message: "EOF while reading, expected ) to match ( at [2,1]",
+    phase: "companion-evaluate",
+    position: { column: 17, line: 2 },
+    source: "Companion namespace",
+  });
+  assert.deepEqual(playgroundFailure.diagnostic, {
+    message: "Could not resolve symbol: missing-symbol",
+    phase: "playground-evaluate",
+    range: {
+      endColumn: playgroundSource.length + 1,
+      endIndex: playgroundSource.length,
+      endLine: 1,
+      startColumn: 8,
+      startIndex: 7,
+      startLine: 1,
+    },
+    source: "Playground source",
   });
 });
 
@@ -233,7 +326,7 @@ test("returns honest Reader, evaluation, and compilation Diagnostics", async (t)
       startIndex: 16,
       startLine: 2,
     },
-    source: "Playground",
+    source: "Playground source",
   });
   assert.deepEqual(evaluationFailure.diagnostic, {
     message: "Could not resolve symbol: missing-symbol",
@@ -246,11 +339,11 @@ test("returns honest Reader, evaluation, and compilation Diagnostics", async (t)
       startIndex: 7,
       startLine: 1,
     },
-    source: "Playground",
+    source: "Playground source",
   });
   assert.deepEqual(compilationFailure.diagnostic, {
     message: "no conversion to symbol",
     phase: "compile",
-    source: "Playground",
+    source: "Playground source",
   });
 });

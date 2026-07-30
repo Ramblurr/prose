@@ -37,17 +37,28 @@
             <option value="semantic-html">
               Semantic HTML
             </option>
+            <option value="custom-tag-function">Custom tag function</option>
             <option value="html-from-a-collection">
               HTML from a collection
             </option>
           </select>
+          <button id="toggle-companion" type="button"
+                  aria-controls="companion-editor-section"
+                  aria-expanded="false" hidden>Show Companion namespace</button>
           <button id="reset-example" type="button" disabled>Reset</button>
         </div>
       </div>
-      <div class="editor-section">
-        <h3 id="source-editor-label">Playground source</h3>
-        <div id="source-editor" class="editor-shell" aria-busy="true"></div>
-        <p class="editor-hint"><kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> renders explicitly.</p>
+      <div id="editor-stack" class="editor-stack">
+        <section class="editor-section" aria-labelledby="source-editor-label">
+          <h3 id="source-editor-label">Playground source</h3>
+          <div id="source-editor" class="editor-shell" aria-busy="true"></div>
+          <p class="editor-hint"><kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> renders explicitly.</p>
+        </section>
+        <section id="companion-editor-section" class="editor-section"
+                 aria-labelledby="companion-editor-label" hidden>
+          <h3 id="companion-editor-label">Companion namespace</h3>
+          <div id="companion-editor" class="editor-shell" aria-busy="true"></div>
+        </section>
       </div>
       <section id="diagnostic" class="diagnostic"
                data-attr-hidden="!$diagnosticMessage" hidden>
