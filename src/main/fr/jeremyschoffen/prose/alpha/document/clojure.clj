@@ -6,8 +6,7 @@ API providing evaluation tools to evaluate documents using Clojure's environment
   (:require
    [clojure.java.io :as io]
    [fr.jeremyschoffen.prose.alpha.document.common.evaluator :as evaluator]
-   [fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]
-   [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
+   [fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]))
 
 (defn default-slurp-doc
   "Reads the resource at `path` and returns its contents."
@@ -19,9 +18,7 @@ API providing evaluation tools to evaluate documents using Clojure's environment
 (def default-env
   "Default configuration for [[make-evaluator]]."
   {:slurp-doc default-slurp-doc
-   :read-doc reader/read-from-string
-   :eval-form eval
-   :eval-forms eval-common/eval-forms-in-temp-ns})
+   :eval-form eval})
 
 (defn- ensure-namespace [namespace-symbol]
   (or (find-ns namespace-symbol)
@@ -40,41 +37,39 @@ API providing evaluation tools to evaluate documents using Clojure's environment
 
 
 (defn- evaluate-document*
-  ([env path input opts]
-   (evaluate-document* env path input opts nil))
-  ([{:keys [slurp-doc read-doc eval-form eval-forms] :as env}
-    path input opts inherited-context]
-   (let [source (slurp-doc path)
-         temporary-symbol (when-not (or inherited-context (:initial-ns opts))
-                            (gensym "prose.alpha.document.temp-"))
-         active-namespace (or (:namespace inherited-context)
-                              (ensure-namespace (or (:initial-ns opts) temporary-symbol)))
-         hidden-namespace (or (:hidden-namespace inherited-context)
-                              (when temporary-symbol active-namespace))]
-     (try
-       (binding [*ns* active-namespace]
-         (eval-common/bind-env
-          {:prose.alpha.document/path path
-           :prose.alpha.document/input input
-           :prose.alpha.document/slurp-doc slurp-doc
-           :prose.alpha.document/read-doc read-doc
-           :prose.alpha.document/eval-forms eval-forms
-           :prose.alpha.document/evaluate-document
-           (fn [required-path]
-             (evaluate-document*
-              env required-path input {}
-              {:namespace *ns*
-               :hidden-namespace (when (identical? hidden-namespace *ns*)
-                                   hidden-namespace)}))}
-          (evaluator/evaluate-source
-           source
-           {:eval-form eval-form
-            :reader-context #(reader-context hidden-namespace)})))
-       (finally
-         (when (and temporary-symbol (find-ns temporary-symbol))
-           (remove-ns temporary-symbol)))))))
+  [{:keys [env path opts inherited-context] :as request}]
+  (let [{:keys [slurp-doc eval-form]} env
+        source (slurp-doc path)
+        temporary-symbol (when-not (or inherited-context (:initial-ns opts))
+                           (gensym "prose.alpha.document.temp-"))
+        active-namespace (or (:namespace inherited-context)
+                             (ensure-namespace (or (:initial-ns opts) temporary-symbol)))
+        hidden-namespace (or (:hidden-namespace inherited-context)
+                             (when temporary-symbol active-namespace))]
+    (try
+      (binding [*ns* active-namespace]
+        (eval-common/bind-env
+         (evaluator/document-environment
+          request
+          (fn [required-path]
+            (evaluate-document*
+             (assoc request
+                    :path required-path
+                    :opts {}
+                    :inherited-context
+                    {:namespace *ns*
+                     :hidden-namespace
+                     (when (identical? hidden-namespace *ns*)
+                       hidden-namespace)}))))
+         (evaluator/evaluate-source
+          source
+          {:eval-form eval-form
+           :reader-context #(reader-context hidden-namespace)})))
+      (finally
+        (when (and temporary-symbol (find-ns temporary-symbol))
+          (remove-ns temporary-symbol))))))
 
-(defn evaluate-document
+(def evaluate-document
   "Evaluates the document at `path` one top-level item at a time.
 
   Each item is read using namespace state produced by earlier evaluation.
@@ -86,38 +81,25 @@ API providing evaluation tools to evaluate documents using Clojure's environment
   | key           | description
   | ------------- | -----------
   | `:initial-ns` | Namespace symbol used for initial reading and evaluation. |"
-  ([path]
-   (evaluate-document path {} {}))
-  ([path input]
-   (evaluate-document path input {}))
-  ([path input opts]
-   (evaluate-document* default-env path input opts)))
+  (evaluator/make-evaluate-document default-env evaluate-document*))
 
 (defn make-evaluator
   "Creates a configured [[evaluate-document]] function.
 
   Configuration:
 
-  | key           | description
-  | ------------- | -----------
-  | `:slurp-doc`  | Function that returns source text for a path. |
-  | `:eval-form`  | Trusted function that evaluates one form. |
-  | `:read-doc`   | Reader made available to included documents. |
-  | `:eval-forms` | Evaluator made available to included documents. |
+  | key          | description
+  | ------------ | -----------
+  | `:slurp-doc` | Function that returns source text for a path. |
+  | `:eval-form` | Trusted function that evaluates one form. |
 
   The returned function accepts `path`, optional document `input`, and optional
   document options as separate arguments."
   ([]
    (make-evaluator {}))
   ([env]
-   (let [env (merge default-env env)]
-     (fn evaluate-document
-       ([path]
-        (evaluate-document* env path {} {}))
-       ([path input]
-        (evaluate-document* env path input {}))
-       ([path input opts]
-        (evaluate-document* env path input opts))))))
+   (-> (merge default-env env)
+       (evaluator/make-evaluate-document evaluate-document*))))
 
 (comment
   (def eval-doc (make-evaluator))

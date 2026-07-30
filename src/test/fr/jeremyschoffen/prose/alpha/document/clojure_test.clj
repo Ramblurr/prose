@@ -2,7 +2,9 @@
   (:require
     [clojure.test :refer [deftest is]]
     [fr.jeremyschoffen.prose.alpha.document.clojure :as document]
-    [fr.jeremyschoffen.prose.alpha.out.html.compiler :as html]))
+    [fr.jeremyschoffen.prose.alpha.out.html.compiler :as html]
+    [fr.jeremyschoffen.prose.alpha.out.latex.compiler :as latex]
+    [fr.jeremyschoffen.prose.alpha.out.markdown.compiler :as markdown]))
 
 
 (deftest inserts-required-documents
@@ -19,6 +21,29 @@
            {:tag-count (count ns-tags)
             :same-parent-context?
             (every? #(= first-tag %) (rest ns-tags))}))))
+
+
+(deftest compilers-consume-staged-document
+  (let [source (str
+                 "◊(require '[fr.jeremyschoffen.prose.alpha.document.lib :as doc])"
+                 "◊(doc/xml-tag :section \"value\")")
+        result ((document/make-evaluator {:slurp-doc (constantly source)})
+                :memory)]
+    (is (= '[(require
+               '[fr.jeremyschoffen.prose.alpha.document.lib :as doc])
+              (doc/xml-tag :section "value")]
+           (:forms result)))
+    (is (= {:html "<section>value</section>"
+            :markdown "<section>value</section>"
+            :latex "\\section{value}"}
+           {:html (html/compile! (:document result))
+            :markdown (markdown/compile! (:document result))
+            :latex (latex/compile! (:document result))}))))
+
+
+(deftest exposes-only-staged-evaluator-configuration
+  (is (= #{:slurp-doc :eval-form}
+         (set (keys document/default-env)))))
 
 
 (deftest stages-reading-after-namespace-evaluation
@@ -324,6 +349,35 @@
                      "<li>One</li><li>One plus two is 3</li></ul>")}
                {:result result
                 :html (html/compile! (:document result))})))
+      (finally
+        (when (find-ns document-ns)
+          (remove-ns document-ns))))))
+
+(deftest resolves-namespace-syntax-inside-recursively-nested-command
+  (let [document-ns 'prose.test.nested-command
+        source
+        (str "◊(ns prose.test.nested-command "
+             "(:require [fr.jeremyschoffen.prose.alpha.out.html.tags :as h]))"
+             "◊h/ul{◊h/li[{:data-local ::inside :data-tag ::h/tag}]{Item}}")
+        evaluate-document (document/make-evaluator
+                           {:slurp-doc (constantly source)})]
+    (try
+      (let [result (evaluate-document :memory)]
+        (is (= {:forms
+                '[(ns prose.test.nested-command
+                    (:require
+                      [fr.jeremyschoffen.prose.alpha.out.html.tags :as h]))
+                  (h/ul
+                    (h/li
+                      {:data-local :prose.test.nested-command/inside
+                       :data-tag :fr.jeremyschoffen.prose.alpha.out.html.tags/tag}
+                      "Item"))]
+                :nested-attrs
+                {:data-local :prose.test.nested-command/inside
+                 :data-tag :fr.jeremyschoffen.prose.alpha.out.html.tags/tag}}
+               {:forms (:forms result)
+                :nested-attrs
+                (get-in result [:document 1 :content 0 :attrs])})))
       (finally
         (when (find-ns document-ns)
           (remove-ns document-ns))))))

@@ -1,9 +1,8 @@
 (ns fr.jeremyschoffen.prose.alpha.docs.pages.readme.example-evaluation
   (:require
+    [clojure.string :as string]
     [fr.jeremyschoffen.prose.alpha.document.sci :as doc]
     [fr.jeremyschoffen.prose.alpha.document.sci.bindings :as bindings]
-    [fr.jeremyschoffen.prose.alpha.eval.sci :as eval-sci]
-    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]
     [fr.jeremyschoffen.prose.alpha.out.html.compiler :as cplr]
 
 
@@ -25,21 +24,17 @@
 (def sci-ctxt (doc/init sci-nss))
 
 
-;; Making a sci eval function using our environment
-(def eval-forms (partial eval-sci/eval-forms-in-temp-ns sci-ctxt))
-
-
-;; Putting together a function that reads and evals documents
-(def eval-doc (doc/make-evaluator {:slurp-doc slurp
-                                   :read-doc reader/read-from-string
-                                   :eval-forms eval-forms}))
+;; Putting together a staged document evaluator
+(def eval-doc (doc/make-evaluator {:sci-ctxt sci-ctxt
+                                   :slurp-doc slurp}))
 
 ;; Generation of the html example
 (defn make-example []
   (-> example-src
       eval-doc
+      :document
       cplr/compile!
-      clojure.string/trim
+      string/trim
       (->> (spit example-dest))))
 
 

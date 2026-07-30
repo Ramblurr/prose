@@ -47,7 +47,7 @@ apis and setting up a little helper:
 (require '[clojure.java.io :as io])
 (require '[clojure.pprint :as pp])
 (require '[fr.jeremyschoffen.prose.alpha.reader.core :as reader])
-(require '[fr.jeremyschoffen.prose.alpha.eval.common :as eval-common])
+(require '[fr.jeremyschoffen.prose.alpha.document.clojure :as doc])
 (require '[fr.jeremyschoffen.prose.alpha.out.html.compiler :as html-compiler])
 }
 
@@ -71,16 +71,18 @@ Let's read it:
 (display document)
 }
 
-Eval it:
+Evaluate it one top-level item at a time:
 ◊code{
-(def evaled-document (eval-common/eval-forms-in-temp-ns document))
+(def evaluation
+  (doc/evaluate-document
+    "fr/jeremyschoffen/prose/alpha/docs/pages/readme/example-doc.html.prose"))
 
-(display evaled-document)
+(display evaluation)
 }
 
 Compile it to html:
 ◊code{
-(html-compiler/compile! evaled-document)
+(html-compiler/compile! (:document evaluation))
 }
 
 There are some helpers to make this process easier:
@@ -93,11 +95,10 @@ There are some helpers to make this process easier:
     io/resource
     slurp))
 
-(def evaluate (doc/make-evaluator {:slurp-doc slurp-doc
-                                   :read-doc reader/read-from-string
-                                   :eval-forms eval-common/eval-forms-in-temp-ns}))
+(def evaluate (doc/make-evaluator {:slurp-doc slurp-doc}))
 (-> "fr/jeremyschoffen/prose/alpha/docs/pages/readme/example-doc.html.prose"
   evaluate
+  :document
   html-compiler/compile!)
 }
 
@@ -105,6 +106,58 @@ The namespaces `fr.jeremyschoffen.prose.alpha.document.*` provide more
 functionality than just composing `slurp`, `read` and `eval` functions.
 The `make-evaluator` functions there sets up the possibility
 for documents to import other documents, passing input data to documents...
+
+`reader/read-from-string` is pure: it returns ordinary Clojure data without
+executing it. Document evaluation performs real effects. It first checks the
+whole source for structural errors, then reads and evaluates one top-level item
+at a time so that namespace changes and aliases affect later items.
+
+A successful evaluation returns `:forms`, the intermediate forms, and
+`:document`, their evaluated values. Pass only `:document` to an output compiler.
+The evaluator accepts `{:initial-ns 'some.namespace}` as its third argument.
+Without it, evaluation starts in a hidden temporary namespace. Read and
+evaluation failures retain completed `:forms` and `:document` values in their
+exception data; evaluation failures also identify the failing form.
+
+
+### Namespace-aware staged example
+
+A document namespace and alias become available to the next top-level item,
+including its nested tags:
+
+```text
+◊"◊"(ns prose.example
+  (:require [fr.jeremyschoffen.prose.alpha.out.html.tags :as h]))◊"◊"h/ul[{:data-list ::list
+         :data-tag ::h/tag}]{◊"◊"h/li{One}◊"◊"h/li{One plus two is ◊"◊"(+ 1 2)}}
+```
+
+The staged evaluator returns the forms it read and their evaluated values:
+
+```clojure
+{:forms
+ [(ns prose.example
+    (:require
+      [fr.jeremyschoffen.prose.alpha.out.html.tags :as h]))
+  (h/ul
+    {:data-list :prose.example/list
+     :data-tag :fr.jeremyschoffen.prose.alpha.out.html.tags/tag}
+    (h/li "One")
+    (h/li "One plus two is " (+ 1 2)))]
+ :document
+ [nil
+  {:tag :ul
+   :attrs {:data-list :prose.example/list
+           :data-tag :fr.jeremyschoffen.prose.alpha.out.html.tags/tag}
+   :content [{:tag :li, :content ["One"], :type :tag}
+             {:tag :li, :content ["One plus two is " 3], :type :tag}]
+   :type :tag}]}
+```
+
+Compiling only `:document` yields:
+
+```html
+<ul data-list=":prose.example/list" data-tag=":fr.jeremyschoffen.prose.alpha.out.html.tags/tag"><li>One</li><li>One plus two is 3</li></ul>
+```
 
 
 ## The ◊"◊" (lozenge) character
@@ -174,13 +227,12 @@ Cons:
 - Managing the sci context makes for an api not as easy to use.
 
 ### Limitations
-At the moment using Clojure's shortened syntax for namespace qualified keywords
-is a bit tricky to use, it requires knowledge of namespace aliases before
-reading documents. The main reader function, using
-[edamame](https://github.com/borkdude/edamame) under the hood accepts
-options passed down to edamame allowing this shortened syntax.
-(see the docstring of ◊sym[reader/read-from-string] and
-[edamame's docs](https://github.com/borkdude/edamame#auto-resolve))
+The pure reader still needs namespace aliases supplied in its reader options.
+The staged document evaluators instead use namespace changes from each evaluated
+top-level item while reading the next one. SCI can resolve only namespaces and
+vars exposed by its configured context. Full Babashka-hosted SCI document
+evaluation remains unsupported because nested `sci/binding` is unavailable
+there.
 
 
 ## Mentions

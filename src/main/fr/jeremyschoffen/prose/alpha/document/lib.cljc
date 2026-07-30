@@ -8,6 +8,7 @@ Api providing several tools to use inside or outside of prose document.
        :cljs [cljs.spec.alpha :as s :include-macros true])
 
     [fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]
     [hyperfiddle.rcf :refer [tests]]))
 
 
@@ -278,16 +279,6 @@ Api providing several tools to use inside or outside of prose document.
   (apply (get-slurp-doc) args))
 
 
-(defn get-read-doc
-  "Get the reading function from the evaluation environment."
-  []
-  (get-env :prose.alpha.document/read-doc))
-
-
-(defn read-doc
-  "Read a string using the function given by [[get-read-doc]]."
-  [& args]
-  (apply (get-read-doc) args))
 
 
 (defn get-eval-doc
@@ -319,7 +310,7 @@ Api providing several tools to use inside or outside of prose document.
   [path]
   (list 'quote
         (apply <>
-               (load* (comp read-doc slurp-doc)
+               (load* (comp reader/read-from-string slurp-doc)
                       {:path path
                        :form &form
                        :error-msg "Error inserting doc."}))))
@@ -331,11 +322,3 @@ Api providing several tools to use inside or outside of prose document.
   (apply <> (load* (comp :document eval-doc)
                    {:path path
                     :error-msg "Error requiring doc."})))
-
-
-(comment
-  (eval-common/bind-env {:prose.alpha.document/input {:some :input}}
-                        (eval-common/eval-forms-in-temp-ns
-                          '[(require '[fr.jeremyschoffen.prose.alpha.document.lib :refer [get-input]])
-                            (get-input)]))
-)

@@ -42,12 +42,29 @@ reader neither chooses an evaluator nor creates an evaluator-specific AST.
 
 The optional `:reader-options` map replaces the safe Edamame defaults while
 reading embedded Clojure. Read-eval remains disabled by default.
+See [Edamame's documentation](https://github.com/borkdude/edamame) for the
+available reader options.
 
 ```clojure
 (reader/read-from-string
   "◊(::alias/value)"
   {:reader-options {:auto-resolve {'alias 'example.ns}}})
 ;; => [(:example.ns/value)]
+```
+
+`:initial-ns` assigns the current namespace used by auto-resolved local
+keywords. It overrides `:current` in `:reader-options` while preserving alias
+mappings. This is still pure reading: it does not execute an `ns` form or any
+other document code.
+
+```clojure
+(reader/read-from-string
+  "◊(vector ::local ::alias/value)"
+  {:initial-ns 'example.document
+   :reader-options
+   {:auto-resolve {:current 'ignored.namespace
+                   'alias 'example.ns}}})
+;; => [(vector :example.document/local :example.ns/value)]
 ```
 
 ## Source regions and errors
@@ -66,15 +83,15 @@ this error shape.
 
 ## Evaluators and runtimes
 
-Reader output works with both existing evaluator modes. Trusted JVM Clojure
-uses `clojure.core/eval`, retains the runtime classpath, performs normal macro
-expansion and compilation, and supports Java interop. SCI remains a separate,
-portable evaluator for supported hosts.
+The public reader is pure and does not evaluate its output. Document programs
+use the staged JVM or SCI adapter, which reads and evaluates one top-level item
+at a time. Trusted JVM Clojure retains the runtime classpath, normal macro
+expansion, compilation, and Java interop. SCI remains portable across supported
+hosts.
 
 The reader, document helpers, tag constructors, and output compilers load under
-Babashka. Prose's SCI evaluator still has a separate nested `sci/binding`
-limitation when Babashka hosts it; this reader change does not claim complete
-Babashka read-evaluate-compile compatibility.
+Babashka. Full Babashka-hosted SCI document evaluation remains unsupported
+because nested `sci/binding` is unavailable there.
 
 Run `just test` to execute the Clojure, ClojureScript, and mandatory Babashka
 compatibility gates.

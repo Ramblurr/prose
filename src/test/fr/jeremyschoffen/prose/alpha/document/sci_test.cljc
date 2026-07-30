@@ -164,6 +164,34 @@
            (remove-clojure-namespaces!
             ['prose.test.shared-document]))))))
 
+(deftest resolves-namespace-syntax-inside-recursively-nested-command
+  (let [source
+        (str "◊(ns prose.test.sci-nested-command "
+             "(:require [fr.jeremyschoffen.prose.alpha.out.html.tags :as h]))"
+             "◊h/ul{◊h/li[{:data-local ::inside :data-tag ::h/tag}]{Item}}")
+        {:keys [evaluate-document]}
+        (make-sci-evaluator
+         (constantly source)
+         {:namespaces
+          {html-namespace {'li tags/li
+                           'ul tags/ul}}})
+        result (evaluate-document :memory)]
+    (is (= {:forms
+            '[(ns prose.test.sci-nested-command
+                (:require
+                  [fr.jeremyschoffen.prose.alpha.out.html.tags :as h]))
+              (h/ul
+                (h/li
+                  {:data-local :prose.test.sci-nested-command/inside
+                   :data-tag :fr.jeremyschoffen.prose.alpha.out.html.tags/tag}
+                  "Item"))]
+            :nested-attrs
+            {:data-local :prose.test.sci-nested-command/inside
+             :data-tag :fr.jeremyschoffen.prose.alpha.out.html.tags/tag}}
+           {:forms (:forms result)
+            :nested-attrs
+            (get-in result [:document 1 :content 0 :attrs])}))))
+
 
 (deftest preserves-partial-progress-and-recovers-after-read-failure
   (let [invalid-source (str valid-source failed-source)

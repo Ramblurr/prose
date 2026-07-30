@@ -59,7 +59,7 @@ Using eval on this vector is problematic:
   (try
     (-> "prose/alpha/readme/example-doc.html.prose"
      lib/slurp-doc
-     lib/read-doc
+     reader/read-from-string
      eval)
     (catch Exception e
       (-> e .getCause .getMessage)))
@@ -106,9 +106,10 @@ See:
 ```clojure
 
   (try
-    (deref (future (lib/eval-doc '[(+ 1 1)(+ 1 2)])))
+    (deref (future (eval-common/eval-forms-in-temp-ns
+                    '[(+ 1 1)(+ 1 2)])))
     (catch Exception e
-      (-> e ex-cause ex-cause ex-cause ex-message)))
+      (-> e ex-cause ex-cause ex-message)))
 
 ```
 ;=>
@@ -120,12 +121,56 @@ Since we want to use ephemeral namespaces this is a problem for a pure Clojure
 evaluation scheme. Sci is an interesting solution to get around this limitation.
 
 
-## The current evaluation toolkit.
-At this time evaluating documents is similar to evaluating a script. A document
-is read as a sequences Clojure forms. We then want to evaluate these forms in
-order. To implement this scheme and provide solutions to the above
-considerations prose provides an evaluation model inspired by the ring spec
-in the `fr.jeremyschoffen.prose.alpha.eval.common` namespace.
+## Staged document evaluation
+
+The reader example above is pure: it returns ordinary Clojure data and never
+executes a form. Document programs should use the Clojure or SCI document
+adapter instead. Each adapter first scans the complete source for structural
+errors, then reads and evaluates one top-level item at a time. A top-level `ns`,
+`in-ns`, `require`, or `alias` can therefore affect how the next item is read.
+A namespace change nested in one outer form affects only later top-level items;
+the rest of that outer form has already been read.
+
+```clojure
+
+(require '[fr.jeremyschoffen.prose.alpha.document.clojure :as document]
+         '[fr.jeremyschoffen.prose.alpha.out.html.compiler :as html])
+
+(def evaluate-document (document/make-evaluator))
+(def result
+  (evaluate-document path input {:initial-ns 'my.document}))
+
+(html/compile! (:document result))
+
+```
+
+A successful evaluation returns exactly `:forms` and `:document`. The first
+value contains the intermediate forms and the second contains their evaluated
+values. HTML, Markdown, and LaTeX compilers consume `:document`. Evaluation is
+real, so definitions, I/O, and other approved side effects happen.
+
+`:initial-ns` selects the initial namespace. Without it, evaluation starts in a
+hidden temporary namespace that is restored and removed afterward. Structural
+scan failures happen before user effects. Read and evaluation failures retain
+completed `:forms` and `:document` values in their exception data; evaluation
+failures also identify the failing form and its source region.
+The exception `:phase` is `:structural-scan`, `:read`, or `:evaluation`.
+
+`lib/require-doc` invokes the staged evaluator recursively and inserts the
+child's `:document` values. The child inherits the parent's current namespace
+context but restores the parent context when it returns. `lib/insert-doc`
+remains read-only and does not evaluate the inserted forms.
+
+The SCI adapter has the same staged result contract on supported Clojure and
+ClojureScript hosts. Full Babashka-hosted SCI document evaluation remains out
+of scope because nested `sci/binding` is unavailable there.
+
+
+## The lower-level evaluation toolkit
+The `fr.jeremyschoffen.prose.alpha.eval` namespaces evaluate sequences of forms
+that have already been read. They remain useful below the staged document API.
+This evaluation model is inspired by the ring spec and lives in the
+`fr.jeremyschoffen.prose.alpha.eval.common` namespace.
 
 ### Basics
 As the ring model uses a map to represent a web request, we use a map to represent
@@ -170,8 +215,8 @@ Note that forms are evaluated in sequence using `fr.jeremyschoffen.prose.alpha.e
 
 ```
 
-This prevent the usual cases of problems that could happen with using `require`
-inside of documents.
+This evaluates already-read forms in sequence. Document sources should use the
+staged adapter above so that evaluation can also affect how later forms are read.
 
 The `fr.jeremyschoffen.prose.alpha.eval.common/evaluate` function is provided as a helper to tie this model together:
 ```clojure
