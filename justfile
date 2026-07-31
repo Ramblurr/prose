@@ -4,6 +4,9 @@ nrepl_middleware := "[cider.piggieback/wrap-cljs-repl]"
 repl:
 	clojure -M:clj:cljs:dev:nrepl:piggie:test -m nrepl.cmdline --middleware "{{nrepl_middleware}}"
 
+playground-repl:
+	cd playground && NODE_PATH="$PWD/node_modules" clojure -M:repl
+
 repl-build:
 	clojure -M:clj:nrepl:build -m nrepl.cmdline
 

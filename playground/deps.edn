@@ -1,6 +1,13 @@
 {:paths ["src"]
 
  :deps {io.github.jerems/prose {:local/root ".."}
-        org.clojure/clojurescript {:mvn/version "1.11.60"}}
+        org.clojure/clojurescript {:mvn/version "1.12.134"}}
 
- :aliases {:test {:extra-paths ["test"]}}}
+ :aliases {:repl {:extra-deps {cider/piggieback {:mvn/version "0.7.0"}
+                               nrepl/nrepl {:mvn/version "1.7.0"}
+                               org.clojure/clojure {:mvn/version "1.12.5"}}
+                  :main-opts ["-m" "nrepl.cmdline"
+                              "--middleware"
+                              "[cider.piggieback/wrap-cljs-repl]"]}
+
+           :test {:extra-paths ["test"]}}}
