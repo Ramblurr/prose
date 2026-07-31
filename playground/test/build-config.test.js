@@ -264,6 +264,9 @@ test("uses native responsive interface controls with persistent appearance choic
   const resultViews = [...html.matchAll(
     /type="radio" name="result-view" value="([^"]+)"/g,
   )].map(([, resultView]) => resultView);
+  const checkedResultViews = [...html.matchAll(
+    /<input type="radio" name="result-view" value="([^"]+)"[^>]*\bchecked\b[^>]*>/g,
+  )].map(([, resultView]) => resultView);
   const pipelineArrows = html.match(
     /<span class="pipeline-arrow" aria-hidden="true">→<\/span>/g,
   ) ?? [];
@@ -285,6 +288,8 @@ test("uses native responsive interface controls with persistent appearance choic
   assert.match(styles, /body\[data-appearance="light"\] \{ color-scheme: light; \}/);
   assert.match(styles, /body\[data-appearance="dark"\] \{ color-scheme: dark; \}/);
   assert.deepEqual(resultViews, ["reader", "evaluated", "html", "preview"]);
+  assert.match(html, /data-signals="\{[^"]*resultView: 'preview'/);
+  assert.deepEqual(checkedResultViews, ["preview"]);
   assert.equal(pipelineArrows.length, 3);
   assert.match(styles, /\.result-choices \.pipeline-arrow/);
   assert.ok(html.indexOf("source-pane") < html.indexOf("result-pane"));
