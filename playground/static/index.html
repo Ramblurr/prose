@@ -6,7 +6,24 @@
   <title>Prose Playground</title>
   <link rel="stylesheet" href="./assets/styles.css">
 </head>
-<body data-signals="{workerReady: false, editorReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.', renderStatus: 'Waiting to render', resultView: 'preview', htmlResult: '', readerResult: '', evaluatedResult: '', diagnosticPhase: '', diagnosticMessage: '', diagnosticDetail: '', stalePreview: false}">
+<body
+  data-signals="{workerReady: false, editorReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.', renderStatus: 'Waiting to render', resultView: 'preview', htmlResult: '', readerResult: '', evaluatedResult: '', diagnosticPhase: '', diagnosticMessage: '', diagnosticDetail: '', stalePreview: false}"
+  data-on-prose-playground-state__window="
+    $workerReady = evt.detail.workerReady ?? $workerReady;
+    $editorReady = evt.detail.editorReady ?? $editorReady;
+    $workerState = evt.detail.workerState ?? $workerState;
+    $workerStatus = evt.detail.workerStatus ?? $workerStatus;
+    $workerStatusDetail = evt.detail.workerStatusDetail ?? $workerStatusDetail;
+    $renderStatus = evt.detail.renderStatus ?? $renderStatus;
+    $resultView = evt.detail.resultView ?? $resultView;
+    $htmlResult = evt.detail.htmlResult ?? $htmlResult;
+    $readerResult = evt.detail.readerResult ?? $readerResult;
+    $evaluatedResult = evt.detail.evaluatedResult ?? $evaluatedResult;
+    $diagnosticPhase = evt.detail.diagnosticPhase ?? $diagnosticPhase;
+    $diagnosticMessage = evt.detail.diagnosticMessage ?? $diagnosticMessage;
+    $diagnosticDetail = evt.detail.diagnosticDetail ?? $diagnosticDetail;
+    $stalePreview = evt.detail.stalePreview ?? $stalePreview
+  ">
   <header class="app-header">
     <div class="brand-lockup">
       <span class="brand-mark" aria-hidden="true">P</span>

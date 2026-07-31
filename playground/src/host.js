@@ -1,7 +1,6 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { load } from "@starfederation/datastar/bundles/datastar";
-import { PluginType } from "@starfederation/datastar/types";
+import "@starfederation/datastar/bundles/datastar";
 import { createExampleController } from "./example-controller.js";
 import { atShorthand } from "./lozenge-shorthand.js";
 import { balancedSyntax, clojureLanguage, proseLanguage } from "./prose-language.js";
@@ -67,16 +66,8 @@ const preferredAppearance = window.matchMedia("(prefers-color-scheme: dark)").ma
 document.body.dataset.appearance = preferredAppearance;
 document.querySelector(`input[name="appearance"][value="${preferredAppearance}"]`).checked = true;
 
-load({
-  type: PluginType.Watcher,
-  name: "playgroundStateAdapter",
-  onGlobalInit({ signals }) {
-    document.addEventListener(stateEvent, ({ detail }) => signals.merge(detail));
-  },
-});
-
 function publish(detail) {
-  document.dispatchEvent(new CustomEvent(stateEvent, { detail }));
+  window.dispatchEvent(new CustomEvent(stateEvent, { detail }));
 }
 
 function previewProjection(html) {
