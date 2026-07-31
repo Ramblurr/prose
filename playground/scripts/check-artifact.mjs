@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 const dist = new URL("../dist/", import.meta.url);
 const assets = new URL("assets/", dist);
+const repository = "https://github.com/ramblurr/prose";
 const examplePaths = [
   "examples/01-text-and-code.prose",
   "examples/02-semantic-html.prose",
@@ -68,7 +69,7 @@ for (const path of examplePaths) {
 
 const html = await readFile(new URL("index.html", dist), "utf8");
 for (const match of html.matchAll(/(?:src|href)=["']([^"']+)/g)) {
-  await access(localAsset(match[1], dist));
+  if (match[1] !== repository) await access(localAsset(match[1], dist));
 }
 
 await checkCss(await readFile(new URL("styles.css", assets), "utf8"));

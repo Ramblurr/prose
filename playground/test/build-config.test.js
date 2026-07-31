@@ -35,6 +35,10 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
     },
   );
   assert.match(deps, /io\.github\.jerems\/prose \{:local\/root "\.\."\}/);
+  assert.match(
+    deps,
+    /zprint\/zprint \{:mvn\/version "1\.3\.0"[\s\S]+:exclusions \[org\.babashka\/sci\]/,
+  );
   const lockPins = [
     "'@codemirror/commands@6.10.4'",
     "'@codemirror/language@6.12.4'",
@@ -94,6 +98,10 @@ test("builds separate optimized ClojureScript host and worker targets without in
       build.indexOf("node scripts/check-artifact.mjs"),
   );
   assert.doesNotMatch(justfile, /node playground\/scripts\/check-artifact\.mjs/);
+  assert.match(
+    await text("scripts/check-artifact.mjs"),
+    /match\[1\] !== repository\) await access\(localAsset\(match\[1\], dist\)\)/,
+  );
 });
 
 test("keeps every hand-authored production module in ClojureScript", async () => {
@@ -164,11 +172,12 @@ Build status: ◊status-label[:ready]
   );
 });
 
-test("provides the fixed paired-source controls without project or export actions", async () => {
+test("provides a persistent Companion for every Example without project or export actions", async () => {
   const html = await text("static/index.html");
   const options = [...html.matchAll(
     /<option value="([^"]+)">([^<]+)<\/option>/g,
   )].map(([, id, title]) => [id, title.trim()]);
+  const toggle = html.match(/<button id="toggle-companion"[\s\S]+?<\/button>/)?.[0] ?? "";
 
   assert.deepEqual(options, [
     ["text-and-code", "Text and code"],
@@ -176,9 +185,16 @@ test("provides the fixed paired-source controls without project or export action
     ["custom-tag-function", "Custom tag function"],
     ["html-from-a-collection", "HTML from a collection"],
   ]);
+  assert.match(html, /<h2 id="source-heading">Source<\/h2>/);
   assert.match(html, /<h3 id="source-editor-label">Playground source<\/h3>/);
   assert.match(html, /<h3 id="companion-editor-label">Companion namespace<\/h3>/);
-  assert.match(html, /<button id="toggle-companion"[^>]+>Show Companion namespace<\/button>/);
+  assert.match(toggle, /\$companionVisible \? 'Hide Companion ns' : 'Show Companion ns'/);
+  assert.match(toggle, />Show Companion ns<\/button>/);
+  assert.doesNotMatch(toggle, /hidden|companionAvailable|namespace'/);
+  assert.match(
+    html,
+    /id="companion-editor-hint"[\s\S]+evaluated before the Playground source for every Render\./,
+  );
   assert.match(html, /<button id="reset-example"[\s\S]+?>Reset<\/button>/);
   assert.doesNotMatch(
     html,
@@ -186,20 +202,30 @@ test("provides the fixed paired-source controls without project or export action
   );
 });
 
-test("installs Prose-aware source editing and literal Companion editing", async () => {
+test("installs associated editor hints and contrasting insertion carets", async () => {
   const html = await text("static/index.html");
+  const host = await text("src/prose/playground/host.cljs");
   const styles = await text("static/styles.css");
 
+  assert.match(html, /id="source-editor-hint"/);
   assert.match(html, /Type <kbd>@<\/kbd> directly for <code>◊<\/code>/);
-  assert.match(html, /without\s+interruption for a literal <code>@<\/code>/);
+  assert.match(html, /type <kbd>@@<\/kbd> for a literal\s*<code>@<\/code>/);
+  assert.doesNotMatch(html, /without interruption/);
+  assert.match(host, /:description/);
+  assert.match(host, /aria-describedby/);
+  assert.match(styles, /--editor-caret: light-dark\(#101828, #ffffff\)/);
+  assert.match(styles, /\.editor-shell \.cm-content \{ caret-color: var\(--editor-caret\); \}/);
   assert.match(styles, /\.tok-prose-command/);
-  assert.match(styles, /body\[data-appearance="dark"\][\s\S]+--syntax-command/);
 });
 
-test("uses native responsive interface controls with their approved ownership", async () => {
+test("uses native responsive interface controls with persistent appearance choices", async () => {
   const html = await text("static/index.html");
+  const styles = await text("static/styles.css");
   const header = html.match(/<header class="app-header">[\s\S]+?<\/header>/)?.[0] ?? "";
   const source = html.match(/<section class="pane source-pane"[\s\S]+?<div id="editor-stack"/)?.[0] ?? "";
+  const appearances = [...html.matchAll(
+    /type="radio" name="appearance" value="([^"]+)"/g,
+  )].map(([, appearance]) => appearance);
   const resultRadios = [...html.matchAll(/type="radio" name="result-view"/g)];
 
   assert.match(header, /id="auto-render"/);
@@ -209,7 +235,15 @@ test("uses native responsive interface controls with their approved ownership", 
   assert.match(source, /id="example-select"/);
   assert.match(source, /id="reset-example"/);
   assert.match(html, /id="settings-popover" class="settings-popover" popover="auto"/);
+  assert.deepEqual(appearances, ["auto", "light", "dark"]);
+  assert.match(html, /name="appearance" value="auto" checked data-bind="appearance"/);
+  assert.match(html, /data-effect="globalThis\.prosePlayground\.persistAppearance\(\$appearance\)"/);
+  assert.match(html, /<strong>Enable CSS Theme<\/strong><small>Presentation only<\/small>/);
   assert.match(html, /id="preview-theme" type="checkbox" role="switch" checked/);
+  assert.match(styles, /\.settings-popover fieldset \{[\s\S]+margin: 0\.7rem 0 0;/);
+  assert.match(styles, /:root \{[\s\S]+color-scheme: light dark;/);
+  assert.match(styles, /body\[data-appearance="light"\] \{ color-scheme: light; \}/);
+  assert.match(styles, /body\[data-appearance="dark"\] \{ color-scheme: dark; \}/);
   assert.equal(resultRadios.length, 4);
   assert.ok(html.indexOf("source-pane") < html.indexOf("result-pane"));
   assert.doesNotMatch(html, /role="tab(?:list)?"|tabindex=/);
@@ -254,9 +288,10 @@ test("gives every declared signal standard Datastar 1.0.2 ownership", async () =
     html,
     /data-on:prose-playground-edit__window="\$autoRender && globalThis\.prosePlayground\.schedule\(\)"/,
   );
+  assert.doesNotMatch(html, /companionAvailable|exampleTitle/);
   assert.match(
     html,
-    /data-on:prose-playground-program__window="[\s\S]+\$companionVisible = evt\.detail\.companion !== null/,
+    /data-signals="\{appearance: globalThis\.prosePlayground\.appearancePreference\(\)/,
   );
   assert.match(
     html,
@@ -266,6 +301,34 @@ test("gives every declared signal standard Datastar 1.0.2 ownership", async () =
   assert.match(
     html,
     /data-attr:srcdoc="\$htmlResult && globalThis\.prosePlayground\.previewDocument\(\$htmlResult, \$appearance, \$previewThemeEnabled\)"/,
+  );
+});
+
+test("links repository branding and explains each selected result", async () => {
+  const html = await text("static/index.html");
+  const repositoryLinks = [...html.matchAll(
+    /<a[^>]+href="https:\/\/github\.com\/ramblurr\/prose"[^>]*>/g,
+  )].map(([link]) => link);
+
+  assert.equal(repositoryLinks.length, 2);
+  for (const link of repositoryLinks) {
+    assert.match(link, /target="_blank"/);
+    assert.match(link, /rel="noopener noreferrer"/);
+  }
+  assert.match(html, /class="github-link"[^>]+aria-label="Prose on GitHub"/);
+  assert.match(html, /<svg[^>]+viewBox="0 0 24 24"\s+width="24" height="24" aria-hidden="true">/);
+  assert.match(html, /d="M7 7h10v10M7 17L17 7"/);
+  assert.match(html, /data-text="\(\{preview: 'Preview shows the generated HTML in an isolated document\.'/);
+  assert.match(html, /html: 'HTML shows the exact generated markup\.'/);
+  assert.match(html, /reader: 'Reader shows the forms produced by reading the Playground source\.'/);
+  assert.match(html, /evaluated: 'Evaluated shows the values produced before HTML compilation\.'/);
+  assert.match(
+    html,
+    /id="reader-result" data-text="\$readerResult && globalThis\.prosePlayground\.formatResult\(\$readerResult\)"/,
+  );
+  assert.match(
+    html,
+    /id="evaluated-result" data-text="\$evaluatedResult && globalThis\.prosePlayground\.formatResult\(\$evaluatedResult\)"/,
   );
 });
 

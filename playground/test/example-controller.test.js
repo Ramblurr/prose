@@ -4,27 +4,29 @@ import seams from "../target/test/public.cjs";
 
 const { createExampleController } = seams;
 
+const canonicalCompanion = "(ns playground.example-tags)\n";
+
 const canonicalExamples = [
   {
-    companion: null,
+    companion: canonicalCompanion,
     id: "text-and-code",
     source: "Text canonical\n",
     title: "Text and code",
   },
   {
-    companion: null,
+    companion: canonicalCompanion,
     id: "semantic-html",
     source: "Semantic canonical\n",
     title: "Semantic HTML",
   },
   {
-    companion: "(ns playground.example-tags)\n",
+    companion: canonicalCompanion,
     id: "custom-tag-function",
     source: "Custom canonical\n",
     title: "Custom tag function",
   },
   {
-    companion: null,
+    companion: canonicalCompanion,
     id: "html-from-a-collection",
     source: "Collection canonical\n",
     title: "HTML from a collection",
@@ -85,20 +87,25 @@ test("selects, edits, and exactly resets the paired Example", () => {
   ]);
 });
 
-test("switching to a single-source Example clears the Companion", () => {
+test("keeps the last authored Companion across Example changes", () => {
   const { controller } = playground();
   controller.start();
-  controller.select("custom-tag-function");
-  controller.editCompanion("(ns playground.example-tags)\n(def leaked true)\n");
+  controller.editCompanion("(ns playground.example-tags)\n(def authored true)\n");
 
   controller.select("semantic-html");
 
   assert.deepEqual(controller.getState(), {
-    companion: null,
+    companion: "(ns playground.example-tags)\n(def authored true)\n",
     selectedExample: "semantic-html",
     source: "Semantic canonical\n",
     title: "Semantic HTML",
   });
+
+  controller.select("custom-tag-function");
+  assert.equal(
+    controller.getState().companion,
+    "(ns playground.example-tags)\n(def authored true)\n",
+  );
 });
 
 test("reload restores the complete authored program and activates a fresh Render", () => {
@@ -146,7 +153,7 @@ test("reload discards persisted transient state", () => {
   controller.start();
 
   assert.deepEqual(controller.getState(), {
-    companion: null,
+    companion: canonicalCompanion,
     selectedExample: "semantic-html",
     source: "Restored authored source\n",
     title: "Semantic HTML",
@@ -160,20 +167,13 @@ test("invalid paired persistence and unavailable storage fall back safely", () =
     JSON.stringify({ version: 2, source: "unsupported", selectedExample: "semantic-html" }),
     JSON.stringify({ version: 1, source: 42, selectedExample: "semantic-html" }),
     JSON.stringify({ version: 1, source: "unknown", selectedExample: "missing" }),
-    JSON.stringify({
-      companion: null,
-      companionVisible: true,
-      selectedExample: "custom-tag-function",
-      source: "incomplete custom program",
-      version: 1,
-    }),
   ];
 
   for (const record of records) {
     const { controller } = playground(new MemoryStorage(record));
     assert.doesNotThrow(() => controller.start());
     assert.equal(controller.getState().selectedExample, "text-and-code");
-    assert.equal(controller.getState().companion, null);
+    assert.equal(controller.getState().companion, canonicalCompanion);
   }
 
   const unavailableStorage = {
@@ -188,4 +188,5 @@ test("invalid paired persistence and unavailable storage fall back safely", () =
   assert.doesNotThrow(() => controller.start());
   assert.doesNotThrow(() => controller.editSource("Still editable\n"));
   assert.equal(controller.getState().source, "Still editable\n");
+  assert.equal(controller.getState().companion, canonicalCompanion);
 });

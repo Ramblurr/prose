@@ -14,6 +14,7 @@
 
 (def public-seams
   #js {:EditorState EditorState
+       :appearancePreference host/appearance-preference
        :atInputTransaction shorthand/at-input-transaction
        :atShorthand shorthand/at-shorthand
        :balancedSyntax prose-language/balanced-syntax
@@ -32,9 +33,11 @@
        :createRenderController render/create-render-controller
        :currentRenderResponse protocol/current-render-response
        :ensureSyntaxTree ensureSyntaxTree
+       :formatResult host/format-result
        :highlightingFor highlightingFor
        :highlightTree highlightTree
        :history history
+       :persistAppearance host/persist-appearance!
        :previewDocument preview-document/preview-document
        :proseLanguage prose-language/prose-language
        :proseTags prose-language/prose-tags

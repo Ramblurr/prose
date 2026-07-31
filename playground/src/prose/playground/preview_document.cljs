@@ -28,7 +28,14 @@
        "</style>"))
 
 (def palettes
-  {"dark" (str "--preview-color-scheme: dark; --preview-background: #1b1e23; "
+  {"auto" (str "--preview-color-scheme: light dark; "
+               "--preview-background: light-dark(#fff, #1b1e23); "
+               "--preview-text: light-dark(#25231f, #e0e3e6); "
+               "--preview-heading: light-dark(#171714, #fff); "
+               "--preview-link: light-dark(#075e63, #8fded7); "
+               "--preview-mark: light-dark(#fae57c, #705e24); "
+               "--preview-border: light-dark(#d8d4ca, #555b64); ")
+   "dark" (str "--preview-color-scheme: dark; --preview-background: #1b1e23; "
                "--preview-text: #e0e3e6; --preview-heading: #fff; "
                "--preview-link: #8fded7; --preview-mark: #705e24; "
                "--preview-border: #555b64;")

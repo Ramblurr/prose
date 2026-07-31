@@ -10,7 +10,11 @@
    [prose.playground.lozenge-shorthand :as shorthand]
    [prose.playground.preview-document :as preview-document]
    [prose.playground.prose-language :as prose-language]
-   [prose.playground.render-controller :as render]))
+   [prose.playground.render-controller :as render]
+   [zprint.core :as zprint]))
+
+(def appearance-persistence-key "prose-playground-appearance")
+(def appearances #{"auto" "dark" "light"})
 
 (def program-event "prose-playground-program")
 (def render-state-event "prose-playground-render-state")
@@ -33,6 +37,11 @@
    (preview-projection (or html ""))
    #js {:appearance appearance
         :themeEnabled theme-enabled}))
+
+(defn format-result [result]
+  (if (empty? result)
+    ""
+    (zprint/zprint-str result 80 {:parse-string? true})))
 
 (defn diagnostic-detail [^js diagnostic]
   (if-not diagnostic
@@ -107,6 +116,21 @@
     (catch :default _
       nil)))
 
+(defn appearance-preference [^js storage]
+  (try
+    (let [appearance (when storage
+                       (.getItem storage appearance-persistence-key))]
+      (if (appearances appearance) appearance "auto"))
+    (catch :default _
+      "auto")))
+
+(defn persist-appearance! [^js storage appearance]
+  (when (appearances appearance)
+    (try
+      (when storage
+        (.setItem storage appearance-persistence-key appearance))
+      (catch :default _))))
+
 (defn- example-text [url]
   (-> (js/fetch url)
       (.then (fn [^js response]
@@ -126,9 +150,9 @@
                       :to (.-length (.. editor -state -doc))}}))
 
 (defn- example-descriptors [^js example-select host-url]
-  (let [example-urls {"custom-tag-function"
-                      {:companion (js/URL. "../examples/playground/example_tags.clj" host-url)
-                       :source (js/URL. "../examples/03-custom-tag-function.prose" host-url)}
+  (let [companion (js/URL. "../examples/playground/example_tags.clj" host-url)
+        example-urls {"custom-tag-function"
+                      {:source (js/URL. "../examples/03-custom-tag-function.prose" host-url)}
 
                       "html-from-a-collection"
                       {:source (js/URL. "../examples/04-html-from-a-collection.prose" host-url)}
@@ -140,7 +164,7 @@
                       {:source (js/URL. "../examples/01-text-and-code.prose" host-url)}}]
     (to-array
      (map (fn [^js option]
-            (let [{:keys [companion source]} (get example-urls (.-value option))]
+            (let [{:keys [source]} (get example-urls (.-value option))]
               #js {:companion companion
                    :id (.-value option)
                    :source source
@@ -158,7 +182,7 @@
      :source (.toString (.. source-editor -state -doc))}))
 
 (defn- create-editor
-  [{:keys [label language on-edit parent request-render! shorthand? source]}]
+  [{:keys [description label language on-edit parent request-render! shorthand? source]}]
   (let [extensions (concat
                     [(line-numbers)
                      (history)
@@ -167,7 +191,8 @@
                     (when shorthand? shorthand/at-shorthand)
                     [(.-lineWrapping ^js EditorView)
                      (.of ^js (.-contentAttributes ^js EditorView)
-                          #js {:aria-labelledby label})
+                          #js {:aria-describedby description
+                               :aria-labelledby label})
                      (.of ^js (.-updateListener ^js EditorView)
                           (fn [^js update]
                             (when (.-docChanged update)
@@ -209,7 +234,8 @@
             (create-editors! [^js program]
               (let [source-editor
                     (create-editor
-                     {:label "source-editor-label"
+                     {:description "source-editor-hint"
+                      :label "source-editor-label"
                       :language prose-language/prose-language
                       :on-edit (fn [source]
                                  (when-let [^js example-controller
@@ -221,7 +247,8 @@
                       :shorthand? true})
                     companion-editor
                     (create-editor
-                     {:label "companion-editor-label"
+                     {:description "companion-editor-hint"
+                      :label "companion-editor-label"
                       :language prose-language/clojure-language
                       :on-edit (fn [source]
                                  (when-let [^js example-controller
@@ -286,7 +313,7 @@
                                    (js/URL. "./worker.js" host-url)))
                   :onChange show-controller-state!})]
         (swap! runtime_ assoc :render-controller render-controller)
-        (set!
+        (js/Object.assign
          (.-prosePlayground ^js js/globalThis)
          (create-host-actions
           {:cancel-scheduled (fn []
@@ -306,6 +333,14 @@
 
         (.start render-controller)
         (load-examples!)))))
+
+(set!
+ (.-prosePlayground ^js js/globalThis)
+ #js {:appearancePreference (fn []
+                              (appearance-preference (browser-storage)))
+      :formatResult format-result
+      :persistAppearance (fn [appearance]
+                           (persist-appearance! (browser-storage) appearance))})
 
 (when (exists? js/document)
   (.addEventListener js/document

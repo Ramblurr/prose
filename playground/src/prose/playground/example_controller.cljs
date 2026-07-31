@@ -47,6 +47,9 @@
                         (nil? (:companion canonical))
                         (assoc canonical :source (:source record))
 
+                        (nil? (:companion record))
+                        (assoc canonical :source (:source record))
+
                         (string? (:companion record))
                         (assoc canonical
                                :companion (:companion record)
@@ -85,7 +88,9 @@
 
            :select
            (fn [id]
-             (activate! (canonical-state (get examples-by-id id))))
+             (activate!
+              (assoc (canonical-state (get examples-by-id id))
+                     :companion (:companion @state_))))
 
            :start
            (fn []
