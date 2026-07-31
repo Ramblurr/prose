@@ -61,6 +61,7 @@ test("documents a script-disabled frozen install", async () => {
 test("builds separate optimized ClojureScript host and worker targets without installing", async () => {
   const build = await text("scripts/build.sh");
   const check = await text("scripts/check.sh");
+  const justfile = await text("../justfile");
 
   assert.doesNotMatch(build, /pnpm (?:add|install)/);
   for (const script of [build, check]) {
@@ -88,6 +89,11 @@ test("builds separate optimized ClojureScript host and worker targets without in
     build,
     /cp vendor\/DATASTAR-LICENSE\.md dist\/assets\/DATASTAR-LICENSE\.md/,
   );
+  assert.ok(
+    build.indexOf("-c prose.playground.worker") <
+      build.indexOf("node scripts/check-artifact.mjs"),
+  );
+  assert.doesNotMatch(justfile, /node playground\/scripts\/check-artifact\.mjs/);
 });
 
 test("keeps every hand-authored production module in ClojureScript", async () => {

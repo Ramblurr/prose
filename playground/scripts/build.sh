@@ -34,3 +34,4 @@ clojure -M -m cljs.main \
   -t webworker \
   -co '{:browser-repl false :externs ["externs.js"] :process-shim false :output-dir "target/worker" :output-to "dist/assets/worker.js"}' \
   -c prose.playground.worker
+node scripts/check-artifact.mjs

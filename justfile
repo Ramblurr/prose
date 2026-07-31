@@ -28,7 +28,6 @@ playground-serve:
 playground-check:
 	mkdir -p playground/dist && printf stale > playground/dist/stale-output
 	just playground-build
-	node playground/scripts/check-artifact.mjs
 	cd playground && pnpm run check
 
 test: clj-test cljs-test bb-compat-test playground-check
