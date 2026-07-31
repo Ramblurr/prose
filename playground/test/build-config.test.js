@@ -261,7 +261,12 @@ test("uses native responsive interface controls with persistent appearance choic
   const appearances = [...html.matchAll(
     /type="radio" name="appearance" value="([^"]+)"/g,
   )].map(([, appearance]) => appearance);
-  const resultRadios = [...html.matchAll(/type="radio" name="result-view"/g)];
+  const resultViews = [...html.matchAll(
+    /type="radio" name="result-view" value="([^"]+)"/g,
+  )].map(([, resultView]) => resultView);
+  const pipelineArrows = html.match(
+    /<span class="pipeline-arrow" aria-hidden="true">→<\/span>/g,
+  ) ?? [];
 
   assert.match(header, /id="auto-render"/);
   assert.match(header, /id="render"/);
@@ -279,7 +284,9 @@ test("uses native responsive interface controls with persistent appearance choic
   assert.match(styles, /:root \{[\s\S]+color-scheme: light dark;/);
   assert.match(styles, /body\[data-appearance="light"\] \{ color-scheme: light; \}/);
   assert.match(styles, /body\[data-appearance="dark"\] \{ color-scheme: dark; \}/);
-  assert.equal(resultRadios.length, 4);
+  assert.deepEqual(resultViews, ["reader", "evaluated", "html", "preview"]);
+  assert.equal(pipelineArrows.length, 3);
+  assert.match(styles, /\.result-choices \.pipeline-arrow/);
   assert.ok(html.indexOf("source-pane") < html.indexOf("result-pane"));
   assert.doesNotMatch(html, /role="tab(?:list)?"|tabindex=/);
 });
@@ -341,6 +348,7 @@ test("gives every declared signal standard Datastar 1.0.2 ownership", async () =
 
 test("links repository branding and explains each selected result", async () => {
   const html = await text("static/index.html");
+  const styles = await text("static/styles.css");
   const repositoryLinks = [...html.matchAll(
     /<a[^>]+href="https:\/\/github\.com\/ramblurr\/prose"[^>]*>/g,
   )].map(([link]) => link);
@@ -351,8 +359,13 @@ test("links repository branding and explains each selected result", async () => 
     assert.match(link, /rel="noopener noreferrer"/);
   }
   assert.match(html, /class="github-link"[^>]+aria-label="Prose on GitHub"/);
+  assert.match(html, /GitHub<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
   assert.match(html, /<svg[^>]+viewBox="0 0 24 24"\s+width="24" height="24" aria-hidden="true">/);
   assert.match(html, /d="M7 7h10v10M7 17L17 7"/);
+  assert.match(
+    styles,
+    /\.github-link svg \{[\s\S]+height: 0\.7em;[\s\S]+top: -0\.32em;[\s\S]+width: 0\.7em;/,
+  );
   assert.match(html, /data-text="\(\{preview: 'Preview shows the generated HTML in an isolated document\.'/);
   assert.match(html, /html: 'HTML shows the exact generated markup\.'/);
   assert.match(html, /reader: 'Reader shows the forms produced by reading the Playground source\.'/);

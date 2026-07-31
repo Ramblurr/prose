@@ -52,8 +52,7 @@
       <h1>Playground</h1>
       <a class="github-link" href="https://github.com/ramblurr/prose"
          target="_blank" rel="noopener noreferrer" aria-label="Prose on GitHub">
-        GitHub
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+        GitHub<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
              width="24" height="24" aria-hidden="true">
           <path fill="none" stroke="currentColor" stroke-linecap="round"
                 stroke-linejoin="round" stroke-width="2"
@@ -156,10 +155,13 @@
         <h2 id="result-heading">Result</h2>
         <fieldset class="result-choices">
           <legend>Result view</legend>
-          <label><input type="radio" name="result-view" value="preview" checked data-bind="resultView"><span>Preview</span></label>
-          <label><input type="radio" name="result-view" value="html" data-bind="resultView"><span>HTML</span></label>
           <label><input type="radio" name="result-view" value="reader" data-bind="resultView"><span>Reader</span></label>
+          <span class="pipeline-arrow" aria-hidden="true">→</span>
           <label><input type="radio" name="result-view" value="evaluated" data-bind="resultView"><span>Evaluated</span></label>
+          <span class="pipeline-arrow" aria-hidden="true">→</span>
+          <label><input type="radio" name="result-view" value="html" data-bind="resultView"><span>HTML</span></label>
+          <span class="pipeline-arrow" aria-hidden="true">→</span>
+          <label><input type="radio" name="result-view" value="preview" checked data-bind="resultView"><span>Preview</span></label>
         </fieldset>
       </div>
 
