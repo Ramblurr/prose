@@ -1,272 +1,266 @@
 (ns prose.playground.host
   (:require
-   [goog.object :as gobj]
+   ["@codemirror/commands" :refer [defaultKeymap history historyKeymap]
+    :rename {defaultKeymap default-keymap
+             historyKeymap history-keymap}]
+   ["@codemirror/view" :refer [EditorView keymap lineNumbers]
+    :rename {lineNumbers line-numbers}]
+   [clojure.string :as str]
    [prose.playground.example-controller :as examples]
-   [prose.playground.interop :as interop]
    [prose.playground.lozenge-shorthand :as shorthand]
    [prose.playground.preview-document :as preview-document]
    [prose.playground.prose-language :as prose-language]
    [prose.playground.render-controller :as render]))
-
-(def commands-module (js/require "@codemirror/commands"))
-(def view-module (js/require "@codemirror/view"))
-
-(def default-keymap (gobj/get commands-module "defaultKeymap"))
-(def history (gobj/get commands-module "history"))
-(def history-keymap (gobj/get commands-module "historyKeymap"))
-(def editor-view (gobj/get view-module "EditorView"))
-(def keymap (gobj/get view-module "keymap"))
-(def line-numbers (gobj/get view-module "lineNumbers"))
 
 (def program-event "prose-playground-program")
 (def render-state-event "prose-playground-render-state")
 (def state-event "prose-playground-state")
 
 (defn preview-projection [html]
-  (let [template (.createElement js/document "template")]
-    (gobj/set template "innerHTML" html)
-    (doseq [link (array-seq
-                  (.querySelectorAll (gobj/get template "content") "a, area"))]
+  (let [^js template (.createElement js/document "template")
+        ^js content (.-content template)]
+    (set! (.-innerHTML template) html)
+    (doseq [^js link (.querySelectorAll content "a, area")]
       (.removeAttribute link "href")
       (.removeAttribute link "xlink:href"))
-    (doseq [refresh (array-seq
-                     (.querySelectorAll (gobj/get template "content")
-                                        "meta[http-equiv]"))]
-      (when (= "refresh" (.toLowerCase (gobj/get refresh "httpEquiv")))
+    (doseq [^js refresh (.querySelectorAll content "meta[http-equiv]")]
+      (when (= "refresh" (.toLowerCase (.-httpEquiv refresh)))
         (.remove refresh)))
-    (gobj/get template "innerHTML")))
+    (.-innerHTML template)))
 
 (defn rendered-preview-document [html appearance theme-enabled]
   (preview-document/preview-document
    (preview-projection (or html ""))
-   (clj->js {:appearance appearance
-             :themeEnabled theme-enabled})))
+   #js {:appearance appearance
+        :themeEnabled theme-enabled}))
 
-(defn diagnostic-detail [diagnostic]
+(defn diagnostic-detail [^js diagnostic]
   (if-not diagnostic
     ""
-    (let [details (array)
-          source (gobj/get diagnostic "source")
-          position (gobj/get diagnostic "position")
-          range (gobj/get diagnostic "range")]
-      (when source
-        (.push details (str "Source: " source)))
-      (when position
-        (.push details
-               (str "line "
-                    (gobj/get position "line")
-                    ", column "
-                    (gobj/get position "column"))))
-      (when range
-        (.push details
-               (str "range "
-                    (gobj/get range "startLine")
-                    ":"
-                    (gobj/get range "startColumn")
-                    "–"
-                    (gobj/get range "endLine")
-                    ":"
-                    (gobj/get range "endColumn")))
-        (.push details
-               (str "indexes "
-                    (gobj/get range "startIndex")
-                    "–"
-                    (gobj/get range "endIndex"))))
-      (when-let [failed-text (gobj/get diagnostic "failedText")]
-        (.push details
-               (str "failed text: " (js/JSON.stringify failed-text))))
-      (when-let [expected (gobj/get diagnostic "expected")]
-        (.push details (str "expected " expected)))
-      (.join details " · "))))
+    (let [source (.-source diagnostic)
+          ^js position (.-position diagnostic)
+          ^js range (.-range diagnostic)
+          failed-text (.-failedText diagnostic)
+          expected (.-expected diagnostic)
+          details (cond-> []
+                    source
+                    (conj (str "Source: " source))
+
+                    position
+                    (conj (str "line "
+                               (.-line position)
+                               ", column "
+                               (.-column position)))
+
+                    range
+                    (conj (str "range "
+                               (.-startLine range)
+                               ":"
+                               (.-startColumn range)
+                               "–"
+                               (.-endLine range)
+                               ":"
+                               (.-endColumn range))
+                          (str "indexes "
+                               (.-startIndex range)
+                               "–"
+                               (.-endIndex range)))
+
+                    failed-text
+                    (conj (str "failed text: "
+                               (js/JSON.stringify failed-text)))
+
+                    expected
+                    (conj (str "expected " expected)))]
+      (str/join " · " details))))
+
+(defn create-host-actions
+  [{:keys [cancel-scheduled preview-document render reset-example schedule-current
+           schedule-program select-example]}]
+  #js {:cancelScheduled cancel-scheduled
+       :previewDocument preview-document
+       :render render
+       :resetExample reset-example
+       :schedule (fn
+                   ([]
+                    (schedule-current))
+                   ([source companion]
+                    (schedule-program source companion)))
+       :selectExample select-example})
+
+(defn- dispatch! [event detail]
+  (.dispatchEvent
+   js/window
+   (js/CustomEvent. event #js {:detail detail})))
+
+(defn- publish! [detail]
+  (dispatch! state-event detail))
+
+(defn- show-controller-state! [^js state]
+  (dispatch!
+   render-state-event
+   (js/Object.assign
+    #js {}
+    state
+    #js {:diagnosticDetail (diagnostic-detail (.-diagnostic state))})))
+
+(defn- browser-storage []
+  (try
+    (.-localStorage js/window)
+    (catch :default _
+      nil)))
+
+(defn- example-text [url]
+  (-> (js/fetch url)
+      (.then (fn [^js response]
+               (if (.-ok response)
+                 (.text response)
+                 (throw
+                  (js/Error.
+                   (str "Example request failed with HTTP "
+                        (.-status response)
+                        "."))))))))
+
+(defn- replace-document! [^js editor source]
+  (.dispatch
+   editor
+   #js {:changes #js {:from 0
+                      :insert source
+                      :to (.-length (.. editor -state -doc))}}))
+
+(defn- example-descriptors [^js example-select host-url]
+  (let [example-urls {"custom-tag-function"
+                      {:companion (js/URL. "../examples/playground/example_tags.clj" host-url)
+                       :source (js/URL. "../examples/03-custom-tag-function.prose" host-url)}
+
+                      "html-from-a-collection"
+                      {:source (js/URL. "../examples/04-html-from-a-collection.prose" host-url)}
+
+                      "semantic-html"
+                      {:source (js/URL. "../examples/02-semantic-html.prose" host-url)}
+
+                      "text-and-code"
+                      {:source (js/URL. "../examples/01-text-and-code.prose" host-url)}}]
+    (to-array
+     (map (fn [^js option]
+            (let [{:keys [companion source]} (get example-urls (.-value option))]
+              #js {:companion companion
+                   :id (.-value option)
+                   :source source
+                   :title (.trim (.-textContent option))}))
+          (.-options example-select)))))
+
+(defn- current-program [runtime_]
+  (let [^js example-controller (:example-controller @runtime_)
+        ^js companion-editor (:companion-editor @runtime_)
+        ^js source-editor (:source-editor @runtime_)
+        ^js example-state (.getState example-controller)
+        companion? (some? (.-companion example-state))]
+    {:companion (when companion?
+                  (.toString (.. companion-editor -state -doc)))
+     :source (.toString (.. source-editor -state -doc))}))
+
+(defn- create-editor
+  [{:keys [current-program label language on-edit parent request-render! shorthand? source]}]
+  (let [extensions (concat
+                    [(line-numbers)
+                     (history)
+                     language
+                     prose-language/balanced-syntax]
+                    (when shorthand? shorthand/at-shorthand)
+                    [(.-lineWrapping ^js EditorView)
+                     (.of ^js (.-contentAttributes ^js EditorView)
+                          #js {:aria-labelledby label})
+                     (.of ^js (.-updateListener ^js EditorView)
+                          (fn [^js update]
+                            (when (.-docChanged update)
+                              (on-edit (.toString (.. update -state -doc)))
+                              (dispatch! "prose-playground-edit"
+                                         (current-program)))))
+                     (.of
+                      ^js keymap
+                      (to-array
+                       (concat
+                        [#js {:key "Mod-Enter"
+                              :run (fn []
+                                     (request-render!)
+                                     true)}]
+                        default-keymap
+                        history-keymap)))])]
+    (EditorView.
+     #js {:doc source
+          :extensions (to-array extensions)
+          :parent parent})))
 
 (defn start! []
-  (let [runtime (js-obj)
-        companion-editor-parent (.querySelector js/document "#companion-editor")
-        example-select (.querySelector js/document "#example-select")
-        source-editor-parent (.querySelector js/document "#source-editor")
-        host-url (gobj/get
-                  (.querySelector js/document "script[src$=\"/host.js\"]")
-                  "src")
-        example-urls
-        {"custom-tag-function"
-         {:companion (js/URL. "../examples/playground/example_tags.clj" host-url)
-          :source (js/URL. "../examples/03-custom-tag-function.prose" host-url)}
-
-         "html-from-a-collection"
-         {:source (js/URL. "../examples/04-html-from-a-collection.prose" host-url)}
-
-         "semantic-html"
-         {:source (js/URL. "../examples/02-semantic-html.prose" host-url)}
-
-         "text-and-code"
-         {:source (js/URL. "../examples/01-text-and-code.prose" host-url)}}
-        example-descriptors
-        (to-array
-         (map (fn [option]
-                (clj->js
-                 (assoc (get example-urls (gobj/get option "value"))
-                        :id (gobj/get option "value")
-                        :title (.trim (gobj/get option "textContent")))))
-              (array-seq (gobj/get example-select "options"))))]
-    (letfn [(dispatch! [event detail]
-              (.dispatchEvent
-               js/window
-               (js/CustomEvent. event #js {:detail detail})))
-            (publish! [detail]
-              (dispatch! state-event detail))
-            (show-controller-state! [state]
-              (dispatch!
-               render-state-event
-               (js/Object.assign
-                #js {}
-                state
-                #js {:diagnosticDetail
-                     (diagnostic-detail (gobj/get state "diagnostic"))})))
-            (current-program []
-              (let [example-controller (gobj/get runtime "exampleController")
-                    companion-editor (gobj/get runtime "companionEditor")
-                    source-editor (gobj/get runtime "sourceEditor")
-                    example-state (interop/call example-controller "getState")
-                    companion? (some? (gobj/get example-state "companion"))]
-                (clj->js
-                 {:companion (when companion?
-                               (.toString
-                                (gobj/get (gobj/get companion-editor "state")
-                                          "doc")))
-                  :source (.toString
-                           (gobj/get (gobj/get source-editor "state") "doc"))})))
-            (render-program! [method source companion]
-              (when-let [controller (gobj/get runtime "renderController")]
-                (interop/call controller method source companion)))
+  (let [runtime_ (atom {})
+        ^js companion-editor-parent (.querySelector js/document "#companion-editor")
+        ^js example-select (.querySelector js/document "#example-select")
+        ^js source-editor-parent (.querySelector js/document "#source-editor")
+        ^js host-script (.querySelector js/document "script[src$=\"/host.js\"]")
+        host-url (.-src host-script)
+        descriptors (example-descriptors example-select host-url)]
+    (letfn [(render-program! [method source companion]
+              (when-let [^js controller (:render-controller @runtime_)]
+                (js-invoke controller method source companion)))
+            (render-current-program! [method]
+              (when (and (:source-editor @runtime_)
+                         (:companion-editor @runtime_))
+                (let [{:keys [source companion]} (current-program runtime_)]
+                  (render-program! method source companion))))
             (request-render! []
-              (when (and (gobj/get runtime "sourceEditor")
-                         (gobj/get runtime "companionEditor"))
-                (let [program (current-program)]
-                  (render-program! "render"
-                                   (gobj/get program "source")
-                                   (gobj/get program "companion")))))
-            (create-editor [options]
-              (let [shorthand? (boolean (gobj/get options "shorthand"))
-                    extensions
-                    (concat
-                     [(interop/invoke line-numbers)
-                      (interop/invoke history)
-                      (gobj/get options "language")
-                      prose-language/balanced-syntax]
-                     (when shorthand? (array-seq shorthand/at-shorthand))
-                     [(gobj/get editor-view "lineWrapping")
-                      (interop/call
-                       (gobj/get editor-view "contentAttributes")
-                       "of"
-                       (clj->js
-                        {:aria-labelledby (gobj/get options "label")}))
-                      (interop/call
-                       (gobj/get editor-view "updateListener")
-                       "of"
-                       (fn [update]
-                         (when (gobj/get update "docChanged")
-                           ((gobj/get options "onEdit")
-                            (.toString
-                             (gobj/get (gobj/get update "state") "doc")))
-                           (dispatch! "prose-playground-edit"
-                                      (current-program)))))
-                      (interop/call
-                       keymap
-                       "of"
-                       (to-array
-                        (concat
-                         [(clj->js
-                           {:key "Mod-Enter"
-                            :run (fn []
-                                   (request-render!)
-                                   true)})]
-                         (array-seq default-keymap)
-                         (array-seq history-keymap))))])]
-                (js/Reflect.construct
-                 editor-view
-                 #js [(clj->js
-                       {:doc (gobj/get options "source")
-                        :extensions (to-array extensions)
-                        :parent (gobj/get options "parent")})])))
-            (create-editors! [program]
-              (gobj/set
-               runtime
-               "sourceEditor"
-               (create-editor
-                (clj->js
-                 {:label "source-editor-label"
-                  :language prose-language/prose-language
-                  :onEdit (fn [source]
-                            (interop/call
-                             (gobj/get runtime "exampleController")
-                             "editSource"
-                             source))
-                  :parent source-editor-parent
-                  :source (gobj/get program "source")
-                  :shorthand true})))
-              (gobj/set
-               runtime
-               "companionEditor"
-               (create-editor
-                (clj->js
-                 {:label "companion-editor-label"
-                  :language prose-language/clojure-language
-                  :onEdit (fn [source]
-                            (interop/call
-                             (gobj/get runtime "exampleController")
-                             "editCompanion"
-                             source))
-                  :parent companion-editor-parent
-                  :source (or (gobj/get program "companion") "")})))
-              (publish! #js {:editorReady true}))
-            (replace-document! [editor source]
-              (interop/call
-               editor
-               "dispatch"
-               (clj->js
-                {:changes {:from 0
-                           :insert source
-                           :to (gobj/get
-                                (gobj/get (gobj/get editor "state") "doc")
-                                "length")}})))
-            (activate-example! [program]
+              (render-current-program! "render"))
+            (create-editors! [^js program]
+              (let [source-editor
+                    (create-editor
+                     {:current-program #(current-program runtime_)
+                      :label "source-editor-label"
+                      :language prose-language/prose-language
+                      :on-edit (fn [source]
+                                 (when-let [^js example-controller
+                                            (:example-controller @runtime_)]
+                                   (.editSource example-controller source)))
+                      :parent source-editor-parent
+                      :request-render! request-render!
+                      :source (.-source program)
+                      :shorthand? true})
+                    companion-editor
+                    (create-editor
+                     {:current-program #(current-program runtime_)
+                      :label "companion-editor-label"
+                      :language prose-language/clojure-language
+                      :on-edit (fn [source]
+                                 (when-let [^js example-controller
+                                            (:example-controller @runtime_)]
+                                   (.editCompanion example-controller source)))
+                      :parent companion-editor-parent
+                      :request-render! request-render!
+                      :source (or (.-companion program) "")})]
+                (swap! runtime_ assoc
+                       :source-editor source-editor
+                       :companion-editor companion-editor)
+                (publish! #js {:editorReady true})))
+            (activate-example! [^js program]
               (dispatch! program-event program)
-              (if-let [source-editor (gobj/get runtime "sourceEditor")]
+              (if-let [source-editor (:source-editor @runtime_)]
                 (do
-                  (replace-document! source-editor
-                                     (gobj/get program "source"))
-                  (replace-document! (gobj/get runtime "companionEditor")
-                                     (or (gobj/get program "companion") "")))
+                  (replace-document! source-editor (.-source program))
+                  (replace-document! (:companion-editor @runtime_)
+                                     (or (.-companion program) "")))
                 (create-editors! program))
               (request-render!))
-            (browser-storage []
-              (try
-                (.-localStorage js/window)
-                (catch :default _
-                  nil)))
-            (example-text [url]
-              (-> (js/fetch url)
-                  (.then (fn [response]
-                           (if (gobj/get response "ok")
-                             (.text response)
-                             (throw
-                              (js/Error.
-                               (str "Example request failed with HTTP "
-                                    (gobj/get response "status")
-                                    "."))))))))
             (load-examples! []
               (-> (js/Promise.all
                    (.map
-                    example-descriptors
-                    (fn [descriptor]
+                    descriptors
+                    (fn [^js descriptor]
                       (-> (js/Promise.all
-                           #js [(example-text (gobj/get descriptor "source"))
-                                (if-let [companion
-                                         (gobj/get descriptor "companion")]
+                           #js [(example-text (.-source descriptor))
+                                (if-let [companion (.-companion descriptor)]
                                   (example-text companion)
                                   (js/Promise.resolve nil))])
                           (.then
-                           (fn [sources]
+                           (fn [^js sources]
                              (js/Object.assign
                               #js {}
                               descriptor
@@ -274,58 +268,51 @@
                                    :companion (aget sources 1)})))))))
                   (.then
                    (fn [loaded-examples]
-                     (let [example-controller
+                     (let [^js example-controller
                            (examples/create-example-controller
-                            (clj->js
-                             {:examples loaded-examples
-                              :onActivate activate-example!
-                              :storage (browser-storage)}))]
-                       (gobj/set runtime
-                                 "exampleController"
-                                 example-controller)
-                       (interop/call example-controller "start")
+                            #js {:examples loaded-examples
+                                 :onActivate activate-example!
+                                 :storage (browser-storage)})]
+                       (swap! runtime_ assoc :example-controller example-controller)
+                       (.start example-controller)
                        (publish! #js {:examplesReady true}))))
                   (.catch
-                   (fn [error]
+                   (fn [^js error]
                      (publish!
-                      (clj->js
-                       {:diagnosticDetail ""
-                        :diagnosticMessage (gobj/get error "message")
-                        :diagnosticPhase "Initialization"
-                        :emptyResult true
-                        :renderStatus "Render failed"
-                        :workerStatus "Initialization failed"}))))))]
-      (let [render-controller
+                      #js {:diagnosticDetail ""
+                           :diagnosticMessage (.-message error)
+                           :diagnosticPhase "Initialization"
+                           :emptyResult true
+                           :renderStatus "Render failed"
+                           :workerStatus "Initialization failed"})))))]
+      (let [^js render-controller
             (render/create-render-controller
-             (clj->js
-              {:createWorker (fn []
-                               (js/Worker.
-                                (js/URL. "./worker.js" host-url)))
-               :onChange show-controller-state!}))]
-        (gobj/set runtime "renderController" render-controller)
-        (gobj/set
-         js/globalThis
-         "prosePlayground"
-         (clj->js
-          {:cancelScheduled
-           (fn []
-             (interop/call render-controller "cancelScheduled"))
-           :previewDocument rendered-preview-document
+             #js {:createWorker (fn []
+                                  (js/Worker.
+                                   (js/URL. "./worker.js" host-url)))
+                  :onChange show-controller-state!})]
+        (swap! runtime_ assoc :render-controller render-controller)
+        (set!
+         (.-prosePlayground ^js js/globalThis)
+         (create-host-actions
+          {:cancel-scheduled (fn []
+                               (.cancelScheduled render-controller))
+           :preview-document rendered-preview-document
            :render request-render!
-           :schedule (fn [source companion]
-                       (render-program! "schedule" source companion))
-           :resetExample
-           (fn []
-             (when-let [example-controller
-                        (gobj/get runtime "exampleController")]
-               (interop/call example-controller "reset")))
-           :selectExample
-           (fn [id]
-             (when-let [example-controller
-                        (gobj/get runtime "exampleController")]
-               (interop/call example-controller "select" id)))}))
+           :reset-example (fn []
+                            (when-let [^js example-controller
+                                       (:example-controller @runtime_)]
+                              (.reset example-controller)))
+           :schedule-current (fn []
+                               (render-current-program! "schedule"))
+           :schedule-program (fn [source companion]
+                               (render-program! "schedule" source companion))
+           :select-example (fn [id]
+                             (when-let [^js example-controller
+                                        (:example-controller @runtime_)]
+                               (.select example-controller id)))}))
 
-        (interop/call render-controller "start")
+        (.start render-controller)
         (load-examples!)))))
 
 (when (exists? js/document)

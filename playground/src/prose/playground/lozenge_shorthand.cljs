@@ -1,99 +1,83 @@
 (ns prose.playground.lozenge-shorthand
   (:require
-   [goog.object :as gobj]
-   [prose.playground.interop :as interop]))
+   ["@codemirror/state" :refer [StateEffect StateField]]
+   ["@codemirror/view" :refer [EditorView]]))
 
-(def state-module (js/require "@codemirror/state"))
-(def view-module (js/require "@codemirror/view"))
-
-(def state-effect (gobj/get state-module "StateEffect"))
-(def state-field (gobj/get state-module "StateField"))
-(def editor-view (gobj/get view-module "EditorView"))
-
-(def set-pending-pair
-  (interop/call state-effect "define"))
+(def ^js set-pending-pair
+  (.define ^js StateEffect))
 
 (def pending-pair
-  (interop/call
-   state-field
-   "define"
-   (clj->js
-    {:create (fn [] nil)
-     :update (fn [_ transaction]
-               (or (some (fn [effect]
-                           (when (interop/call effect "is" set-pending-pair)
-                             (gobj/get effect "value")))
-                         (array-seq (gobj/get transaction "effects")))
-                   nil))})))
+  (.define
+   ^js StateField
+   #js {:create (fn [] nil)
+        :update (fn [_ ^js transaction]
+                  (or (some (fn [^js effect]
+                              (when (.is effect set-pending-pair)
+                                (.-value effect)))
+                            (.-effects transaction))
+                      nil))}))
 
-(defn shorthand-pending [state]
-  (or (interop/call state "field" pending-pair false) nil))
+(defn shorthand-pending [^js state]
+  (or (.field state pending-pair false) nil))
 
-(defn pending-pair-collapsible? [state pending]
-  (let [selection (gobj/get (gobj/get state "selection") "main")]
+(defn pending-pair-collapsible? [^js state ^js pending]
+  (let [^js selection (.. state -selection -main)]
     (and pending
-         (gobj/get selection "empty")
-         (= (gobj/get selection "head") (gobj/get pending "to"))
-         (= "◊" (interop/call state
-                              "sliceDoc"
-                              (gobj/get pending "from")
-                              (gobj/get pending "to"))))))
+         (.-empty selection)
+         (= (.-head selection) (.-to pending))
+         (= "◊" (.sliceDoc state
+                           (.-from pending)
+                           (.-to pending))))))
 
-(defn at-input-transaction [state intent]
-  (when (and (= "insertText" (gobj/get intent "inputType"))
-             (= "@" (gobj/get intent "data"))
-             (not (gobj/get intent "isComposing"))
-             (not (gobj/get intent "compositionStarted")))
-    (let [selection (gobj/get (gobj/get state "selection") "main")
-          pending (shorthand-pending state)]
+(defn at-input-transaction [^js state ^js intent]
+  (when (and (= "insertText" (.-inputType intent))
+             (= "@" (.-data intent))
+             (not (.-isComposing intent))
+             (not (.-compositionStarted intent)))
+    (let [^js selection (.. state -selection -main)
+          ^js pending (shorthand-pending state)]
       (if (pending-pair-collapsible? state pending)
-        (clj->js
-         {:changes {:from (gobj/get pending "from")
-                    :to (gobj/get pending "to")
-                    :insert "@"}
-          :selection {:anchor (inc (gobj/get pending "from"))}
-          :effects (interop/call set-pending-pair "of" nil)
-          :userEvent "input.type"
-          :scrollIntoView true})
-        (let [from (gobj/get selection "from")]
-          (clj->js
-           {:changes {:from from
-                      :to (gobj/get selection "to")
-                      :insert "◊"}
-            :selection {:anchor (inc from)}
-            :effects (interop/call set-pending-pair
-                                   "of"
-                                   (clj->js {:from from :to (inc from)}))
-            :userEvent "input.type"
-            :scrollIntoView true}))))))
+        #js {:changes #js {:from (.-from pending)
+                           :to (.-to pending)
+                           :insert "@"}
+             :selection #js {:anchor (inc (.-from pending))}
+             :effects (.of set-pending-pair nil)
+             :userEvent "input.type"
+             :scrollIntoView true}
+        (let [from (.-from selection)]
+          #js {:changes #js {:from from
+                             :to (.-to selection)
+                             :insert "◊"}
+               :selection #js {:anchor (inc from)}
+               :effects (.of set-pending-pair
+                             #js {:from from :to (inc from)})
+               :userEvent "input.type"
+               :scrollIntoView true})))))
 
-(defn clear-pending-transaction [state]
+(defn clear-pending-transaction [^js state]
   (when (shorthand-pending state)
-    (clj->js {:effects (interop/call set-pending-pair "of" nil)})))
+    #js {:effects (.of set-pending-pair nil)}))
 
 (def at-shorthand
   #js [pending-pair
-       (interop/call
-        editor-view
-        "domEventHandlers"
-        (clj->js
-         {:beforeinput
-          (fn [event view]
-            (if-let [transaction
-                     (at-input-transaction
-                      (gobj/get view "state")
-                      (clj->js
-                       {:data (gobj/get event "data")
-                        :inputType (gobj/get event "inputType")
-                        :isComposing (gobj/get event "isComposing")
-                        :compositionStarted (gobj/get view "compositionStarted")}))]
-              (do
-                (interop/call view "dispatch" transaction)
-                true)
-              false))
-          :blur
-          (fn [_ view]
-            (when-let [transaction
-                       (clear-pending-transaction (gobj/get view "state"))]
-              (interop/call view "dispatch" transaction))
-            false)}))])
+       (.domEventHandlers
+        ^js EditorView
+        #js {:beforeinput
+             (fn [^js event ^js view]
+               (if-let [transaction
+                        (at-input-transaction
+                         (.-state view)
+                         #js {:data (.-data event)
+                              :inputType (.-inputType event)
+                              :isComposing (.-isComposing event)
+                              :compositionStarted (.-compositionStarted view)})]
+                 (do
+                   (.dispatch view transaction)
+                   true)
+                 false))
+             :blur
+             (fn [_ ^js view]
+               (when-let [transaction
+                          (clear-pending-transaction (.-state view))]
+                 (.dispatch view transaction))
+               false)})])

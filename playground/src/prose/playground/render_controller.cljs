@@ -24,25 +24,25 @@
    :workerState "initializing"})
 
 (defn initial-runtime []
-  {:active-request        nil
-   :auto-timer           nil
-   :deadline-timer       nil
-   :last-successful-output nil
-   :pending-request       nil
-   :started?              false
-   :state                 (initial-state)
-   :worker                nil
-   :worker-ready?         false})
+  {:active-request          nil
+   :auto-timer              nil
+   :deadline-timer          nil
+   :last-successful-output  nil
+   :pending-request         nil
+   :started?                false
+   :state                   (initial-state)
+   :worker                  nil
+   :worker-ready?           false})
 
 (defn create-render-controller
   ([]
    (create-render-controller nil))
   ([options]
-   (let [options (or options #js {})
-         clear-timer (or (aget options "clearTimer") js/clearTimeout)
-         create-worker (aget options "createWorker")
-         on-change (or (aget options "onChange") (fn [_]))
-         set-timer (or (aget options "setTimer") js/setTimeout)
+   (let [^js options (or options #js {})
+         clear-timer (or (.-clearTimer options) js/clearTimeout)
+         create-worker (.-createWorker options)
+         on-change (or (.-onChange options) (fn [_]))
+         set-timer (or (.-setTimer options) js/setTimeout)
          runtime_ (atom (initial-runtime))]
      (letfn [(publish! [patch]
                (swap! runtime_ update :state merge patch)
@@ -56,7 +56,7 @@
                  (clear-timer timer))
                (swap! runtime_ assoc :deadline-timer nil))
              (terminate-worker! []
-               (when-let [worker (:worker @runtime_)]
+               (when-let [^js worker (:worker @runtime_)]
                  (.terminate worker))
                (swap! runtime_ assoc :worker nil :worker-ready? false))
              (fail! [diagnostic]
@@ -68,21 +68,20 @@
                             :renderState "failed"
                             :stale (some? output)})))
              (start-deadline! [request-id]
-               (let [timer
-                     (set-timer
-                      (fn []
-                        (when (= request-id
-                                 (get-in @runtime_ [:active-request :id]))
-                          (terminate-worker!)
-                          (fail! timeout-diagnostic)
-                          (spawn-worker!)))
-                      execution-deadline)]
+               (let [timer (set-timer
+                            (fn []
+                              (when (= request-id
+                                       (get-in @runtime_ [:active-request :id]))
+                                (terminate-worker!)
+                                (fail! timeout-diagnostic)
+                                (spawn-worker!)))
+                            execution-deadline)]
                  (swap! runtime_ assoc :deadline-timer timer)))
              (send-pending-request! []
                (when (and (:worker-ready? @runtime_)
                           (:pending-request @runtime_))
                  (let [request (:pending-request @runtime_)
-                       worker (:worker @runtime_)]
+                       ^js worker (:worker @runtime_)]
                    (swap! runtime_
                           assoc
                           :active-request request
@@ -112,24 +111,24 @@
                      (publish! {:workerState "failed"})
                      (fail! initialization-diagnostic))
 
-                   (when-let [response
+                   (when-let [^js response
                               (protocol/current-render-response
                                message
                                (get-in @runtime_ [:state :requestId]))]
-                     (when (= (aget response "requestId")
+                     (when (= (.-requestId response)
                               (get-in @runtime_ [:active-request :id]))
                        (clear-deadline!)
                        (swap! runtime_ assoc :active-request nil)
-                       (if (= "rendered" (aget response "type"))
-                         (let [output {:evaluated (aget response "evaluated")
-                                       :html (aget response "html")
-                                       :reader (aget response "reader")}]
+                       (if (= "rendered" (.-type response))
+                         (let [output {:evaluated (.-evaluated response)
+                                       :html (.-html response)
+                                       :reader (.-reader response)}]
                            (swap! runtime_ assoc :last-successful-output output)
                            (publish! {:diagnostic nil
                                       :output output
                                       :renderState "rendered"
                                       :stale false}))
-                         (fail! (if-let [diagnostic (aget response "diagnostic")]
+                         (fail! (if-let [diagnostic (.-diagnostic response)]
                                   (js->clj diagnostic :keywordize-keys true)
                                   {:message "Render failed."
                                    :phase "render"
@@ -145,12 +144,12 @@
                (swap! runtime_ assoc :worker-ready? false)
                (publish! {:workerState "initializing"})
                (try
-                 (let [candidate (create-worker)]
+                 (let [^js candidate (create-worker)]
                    (swap! runtime_ assoc :worker candidate)
                    (.addEventListener
                     candidate
                     "message"
-                    (fn [event]
+                    (fn [^js event]
                       (handle-message! candidate (.-data event))))
                    (.addEventListener
                     candidate
@@ -191,16 +190,15 @@
                         (render! source companion-source))
                       auto-delay)]
                  (swap! runtime_ assoc :auto-timer timer)))]
-       (clj->js
-        {:cancelScheduled clear-auto-timer!
-         :getState (fn [] (clj->js (:state @runtime_)))
-         :render render!
-         :schedule schedule!
-         :start (fn []
-                  (when-not (:started? @runtime_)
-                    (swap! runtime_ assoc :started? true)
-                    (spawn-worker!)))
-         :stop (fn []
-                 (clear-auto-timer!)
-                 (clear-deadline!)
-                 (terminate-worker!))})))))
+       #js {:cancelScheduled clear-auto-timer!
+            :getState (fn [] (clj->js (:state @runtime_)))
+            :render render!
+            :schedule schedule!
+            :start (fn []
+                     (when-not (:started? @runtime_)
+                       (swap! runtime_ assoc :started? true)
+                       (spawn-worker!)))
+            :stop (fn []
+                    (clear-auto-timer!)
+                    (clear-deadline!)
+                    (terminate-worker!))}))))

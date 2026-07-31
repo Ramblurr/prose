@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -15,6 +16,7 @@ const required = [
   "index.html",
   "assets/styles.css",
   "assets/datastar.js",
+  "assets/DATASTAR-LICENSE.md",
   "assets/host.js",
   "assets/worker.js",
   ...examplePaths,
@@ -73,8 +75,17 @@ await checkCss(await readFile(new URL("styles.css", assets), "utf8"));
 await assert.rejects(checkCss('@import "https://cdn.example/styles.css";'));
 await assert.rejects(checkCss('@import "/styles.css";'));
 
-const datastar = await readFile(new URL("datastar.js", assets), "utf8");
-assert.match(datastar, /^\/\/ Datastar v1\.0\.2$/m);
+const datastar = await readFile(new URL("datastar.js", assets));
+const datastarDigest = createHash("sha256").update(datastar).digest("hex");
+assert.equal(
+  datastarDigest,
+  "2837d87acf6ee0ba8e4e63765926c25a98d63883b02f88be194a86b81d3fd24a",
+);
+assert.match(datastar.toString("utf8"), /^\/\/ Datastar v1\.0\.2$/m);
+assert.equal(
+  await readFile(new URL("DATASTAR-LICENSE.md", assets), "utf8"),
+  await readFile(new URL("../vendor/DATASTAR-LICENSE.md", import.meta.url), "utf8"),
+);
 
 const host = await readFile(new URL("host.js", assets), "utf8");
 await checkJavaScript(host);

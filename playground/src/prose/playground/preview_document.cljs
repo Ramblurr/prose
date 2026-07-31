@@ -37,9 +37,9 @@
                 "--preview-link: #075e63; --preview-mark: #fae57c; "
                 "--preview-border: #d8d4ca;")})
 
-(defn preview-document [html options]
-  (let [appearance (aget options "appearance")
-        theme (if (aget options "themeEnabled")
+(defn preview-document [html ^js options]
+  (let [appearance (.-appearance options)
+        theme (if (.-themeEnabled options)
                 (str "<style id=\"playground-preview-palette\">:where(:root) { "
                      (get palettes appearance (get palettes "light"))
                      " }</style>"

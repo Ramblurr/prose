@@ -56,7 +56,7 @@
     <div class="actions">
       <label class="auto-control"><input id="auto-render" type="checkbox" checked
                data-bind="autoRender"
-               data-on:change="!$autoRender && globalThis.prosePlayground.cancelScheduled()"> Auto</label>
+               data-on:change="$autoRender ? globalThis.prosePlayground.schedule() : globalThis.prosePlayground.cancelScheduled()"> Auto</label>
       <button id="render" class="primary-action" type="button"
               data-attr:disabled="!($workerReady && $editorReady)"
               data-on:click="globalThis.prosePlayground.render()" disabled>Render</button>

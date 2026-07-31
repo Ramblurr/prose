@@ -2,9 +2,9 @@
 
 (def protocol-version 1)
 
-(defn readiness-state [message]
-  (when (= "ready" (when message (aget message "type")))
-    (if (= protocol-version (aget message "protocol"))
+(defn readiness-state [^js message]
+  (when (= "ready" (when message (.-type message)))
+    (if (= protocol-version (.-protocol message))
       "ready"
       "failed")))
 
@@ -12,17 +12,16 @@
   ([request-id source]
    (render-request request-id source nil))
   ([request-id source companion-source]
-   (clj->js
-    {:type      "render"
-     :protocol  protocol-version
-     :requestId request-id
-     :program   {:source    source
-                 :companion (when (some? companion-source)
-                              {:source companion-source})}})))
+   #js {:type "render"
+        :protocol protocol-version
+        :requestId request-id
+        :program #js {:source source
+                      :companion (when (some? companion-source)
+                                   #js {:source companion-source})}}))
 
-(defn current-render-response [message request-id]
+(defn current-render-response [^js message request-id]
   (when (and message
-             (= protocol-version (aget message "protocol"))
-             (= request-id (aget message "requestId"))
-             (#{"rendered" "failed"} (aget message "type")))
+             (= protocol-version (.-protocol message))
+             (= request-id (.-requestId message))
+             (#{"rendered" "failed"} (.-type message)))
     message))

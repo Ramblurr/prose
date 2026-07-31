@@ -8,7 +8,7 @@ Install the pinned JavaScript dependencies without running package scripts:
 pnpm --dir playground install --frozen-lockfile --ignore-scripts
 ```
 
-Datastar v1.0.2 is vendored as its upstream browser bundle under `vendor/`; see `vendor/README.md` for provenance and its recorded digest. The build copies that bundle into the relocatable artifact without fetching it.
+Datastar v1.0.2 is vendored as its upstream browser bundle under `vendor/`; see `vendor/README.md` for provenance, license, and the machine-checked digest. The build copies both the bundle and license into the relocatable artifact without fetching them.
 
 From the repository root, build and serve the artifact:
 

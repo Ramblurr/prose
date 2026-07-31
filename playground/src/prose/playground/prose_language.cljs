@@ -1,87 +1,76 @@
 (ns prose.playground.prose-language
   (:require
-   [goog.object :as gobj]
-   [prose.playground.interop :as interop]))
+   ["@codemirror/language" :refer [HighlightStyle StreamLanguage StringStream syntaxHighlighting]
+    :rename {HighlightStyle highlight-style
+             StreamLanguage stream-language
+             syntaxHighlighting syntax-highlighting}]
+   ["@codemirror/legacy-modes/mode/clojure" :refer [clojure]
+    :rename {clojure clojure-mode}]
+   ["@lezer/highlight" :refer [Tag tags]
+    :rename {Tag tag-type}]
+   [goog.object :as gobj]))
 
-(def language-module (js/require "@codemirror/language"))
-(def clojure-module (js/require "@codemirror/legacy-modes/mode/clojure"))
-(def highlight-module (js/require "@lezer/highlight"))
+(def ^js highlight-tags tags)
 
-(def highlight-style (gobj/get language-module "HighlightStyle"))
-(def stream-language (gobj/get language-module "StreamLanguage"))
-(def string-stream (gobj/get language-module "StringStream"))
-(def syntax-highlighting (gobj/get language-module "syntaxHighlighting"))
-(def clojure-mode (gobj/get clojure-module "clojure"))
-(def tag-type (gobj/get highlight-module "Tag"))
-(def tags (gobj/get highlight-module "tags"))
-
-(def prose-tags
-  (clj->js
-   {:control (interop/call tag-type
-                           "define"
-                           "proseControl"
-                           (gobj/get tags "processingInstruction"))
-    :command (interop/call tag-type
-                           "define"
-                           "proseCommand"
-                           (gobj/get tags "tagName"))
-    :symbol (interop/call tag-type
-                          "define"
-                          "proseSymbol"
-                          (gobj/get tags "variableName"))
-    :delimiter (interop/call tag-type
-                             "define"
-                             "proseDelimiter"
-                             (gobj/get tags "bracket"))
-    :verbatim (interop/call tag-type
-                            "define"
-                            "proseVerbatim"
-                            (gobj/get tags "string"))}))
+(def ^js prose-tags
+  #js {:control (.define ^js tag-type
+                         "proseControl"
+                         (.-processingInstruction highlight-tags))
+       :command (.define ^js tag-type
+                         "proseCommand"
+                         (.-tagName highlight-tags))
+       :symbol (.define ^js tag-type
+                        "proseSymbol"
+                        (.-variableName highlight-tags))
+       :delimiter (.define ^js tag-type
+                           "proseDelimiter"
+                           (.-bracket highlight-tags))
+       :verbatim (.define ^js tag-type
+                          "proseVerbatim"
+                          (.-string highlight-tags))})
 
 (def balanced-highlight-style
-  (interop/call
-   highlight-style
-   "define"
-   (clj->js
-    [{:tag (gobj/get prose-tags "control")
-      :class "tok-prose-control"}
-     {:tag (gobj/get prose-tags "command")
-      :class "tok-prose-command"}
-     {:tag (gobj/get prose-tags "symbol")
-      :class "tok-prose-symbol"}
-     {:tag (gobj/get prose-tags "delimiter")
-      :class "tok-prose-delimiter"}
-     {:tag (gobj/get prose-tags "verbatim")
-      :class "tok-prose-verbatim"}
-     {:tag (interop/call tags "standard" (gobj/get tags "variableName"))
-      :class "tok-clj-operator"}
-     {:tag [(gobj/get tags "keyword")
-            (gobj/get tags "controlKeyword")
-            (gobj/get tags "definitionKeyword")
-            (gobj/get tags "moduleKeyword")]
-      :class "tok-clj-keyword"}
-     {:tag [(gobj/get tags "atom")
-            (gobj/get tags "bool")
-            (gobj/get tags "null")]
-      :class "tok-clj-atom"}
-     {:tag (gobj/get tags "variableName")
-      :class "tok-clj-symbol"}
-     {:tag [(gobj/get tags "string")
-            (gobj/get tags "character")]
-      :class "tok-clj-string"}
-     {:tag (gobj/get tags "number")
-      :class "tok-clj-number"}
-     {:tag (gobj/get tags "comment")
-      :class "tok-clj-comment"}
-     {:tag (gobj/get tags "bracket")
-      :class "tok-clj-bracket"}
-     {:tag (gobj/get tags "meta")
-      :class "tok-clj-meta"}
-     {:tag (gobj/get tags "invalid")
-      :class "tok-invalid"}])))
+  (.define
+   ^js highlight-style
+   #js [#js {:tag (.-control prose-tags)
+             :class "tok-prose-control"}
+        #js {:tag (.-command prose-tags)
+             :class "tok-prose-command"}
+        #js {:tag (.-symbol prose-tags)
+             :class "tok-prose-symbol"}
+        #js {:tag (.-delimiter prose-tags)
+             :class "tok-prose-delimiter"}
+        #js {:tag (.-verbatim prose-tags)
+             :class "tok-prose-verbatim"}
+        #js {:tag (.standard highlight-tags (.-variableName highlight-tags))
+             :class "tok-clj-operator"}
+        #js {:tag #js [(.-keyword highlight-tags)
+                       (.-controlKeyword highlight-tags)
+                       (.-definitionKeyword highlight-tags)
+                       (.-moduleKeyword highlight-tags)]
+             :class "tok-clj-keyword"}
+        #js {:tag #js [(.-atom highlight-tags)
+                       (.-bool highlight-tags)
+                       (.-null highlight-tags)]
+             :class "tok-clj-atom"}
+        #js {:tag (.-variableName highlight-tags)
+             :class "tok-clj-symbol"}
+        #js {:tag #js [(.-string highlight-tags)
+                       (.-character highlight-tags)]
+             :class "tok-clj-string"}
+        #js {:tag (.-number highlight-tags)
+             :class "tok-clj-number"}
+        #js {:tag (.-comment highlight-tags)
+             :class "tok-clj-comment"}
+        #js {:tag (.-bracket highlight-tags)
+             :class "tok-clj-bracket"}
+        #js {:tag (.-meta highlight-tags)
+             :class "tok-clj-meta"}
+        #js {:tag (.-invalid highlight-tags)
+             :class "tok-invalid"}]))
 
 (def balanced-syntax
-  (interop/invoke syntax-highlighting balanced-highlight-style))
+  (syntax-highlighting balanced-highlight-style))
 
 (def whitespace
   #{"\t" "\n" "\u000B" "\f" "\r" " " "\u00a0" "\u1680"
@@ -92,7 +81,8 @@
 (def symbol-delimiters #{"(" ")" "[" "]" "{" "}" "\""})
 
 (def clojure-base-tokenizer
-  (gobj/get (interop/call clojure-mode "startState" 2) "tokenize"))
+  (let [^js state (.startState ^js clojure-mode 2)]
+    (.-tokenize state)))
 
 (defn whitespace-character? [character]
   (contains? whitespace character))
@@ -124,271 +114,261 @@
       first-end)
     0))
 
-(defn clone-context [context]
+(defn clone-context [^js context]
   (when context
-    (let [copy (gobj/clone context)]
-      (gobj/set copy "prev" (clone-context (gobj/get context "prev")))
+    (let [^js copy (gobj/clone context)]
+      (set! (.-prev copy) (clone-context (.-prev context)))
       copy)))
 
-(defn clone-clojure-state [state]
-  (let [copy (gobj/clone state)]
-    (gobj/set copy "ctx" (clone-context (gobj/get state "ctx")))
+(defn clone-clojure-state [^js state]
+  (let [^js copy (gobj/clone state)]
+    (set! (.-ctx copy) (clone-context (.-ctx state)))
     copy))
 
 (defn clojure-frame
   ([closing indent-unit]
    (clojure-frame closing indent-unit false))
   ([closing indent-unit finish-command?]
-   (let [state (interop/call clojure-mode "startState" indent-unit)
+   (let [^js state (.startState ^js clojure-mode indent-unit)
          opening (if (= ")" closing) "(" "[")]
-     (interop/call clojure-mode
-                   "token"
-                   (js/Reflect.construct string-stream #js [opening])
-                   state)
-     (clj->js
-      {:kind "clojure"
-       :closing closing
-       :finishCommand finish-command?
-       :state state}))))
+     (.token ^js clojure-mode (StringStream. opening) state)
+     #js {:kind "clojure"
+          :closing closing
+          :finishCommand finish-command?
+          :state state})))
 
 (defn text-frame
   ([]
    (text-frame nil))
   ([closing]
-   (clj->js
-    {:kind "text"
-     :closing closing
-     :depth (if closing 1 0)})))
+   #js {:kind "text"
+        :closing closing
+        :depth (if closing 1 0)}))
 
 (defn command-frame []
-  (clj->js {:kind "command" :stage "after-introducer"}))
+  #js {:kind "command" :stage "after-introducer"})
 
-(defn copy-frame [frame]
-  (let [copy (gobj/clone frame)]
-    (when (= "clojure" (gobj/get frame "kind"))
-      (gobj/set copy "state" (clone-clojure-state (gobj/get frame "state"))))
+(defn copy-frame [^js frame]
+  (let [^js copy (gobj/clone frame)]
+    (when (= "clojure" (.-kind frame))
+      (set! (.-state copy) (clone-clojure-state (.-state frame))))
     copy))
 
-(defn close-child-frame [state frame]
-  (.pop (gobj/get state "frames"))
-  (when (gobj/get frame "finishCommand")
-    (.pop (gobj/get state "frames"))))
+(defn close-child-frame [^js state ^js frame]
+  (.pop (.-frames state))
+  (when (.-finishCommand frame)
+    (.pop (.-frames state))))
 
-(defn consume-text [stream state frame]
-  (let [character (interop/call stream "peek")]
+(defn consume-text [^js stream ^js state ^js frame]
+  (let [character (.peek stream)]
     (cond
       (= "◊" character)
       (do
-        (interop/call stream "next")
-        (.push (gobj/get state "frames") (command-frame))
+        (.next stream)
+        (.push (.-frames state) (command-frame))
         "prose-control")
 
-      (and (gobj/get frame "closing") (= "{" character))
+      (and (.-closing frame) (= "{" character))
       (do
-        (interop/call stream "next")
-        (gobj/set frame "depth" (inc (gobj/get frame "depth")))
+        (.next stream)
+        (set! (.-depth frame) (inc (.-depth frame)))
         "prose-delimiter")
 
-      (and (gobj/get frame "closing") (= "}" character))
+      (and (.-closing frame) (= "}" character))
       (do
-        (interop/call stream "next")
-        (gobj/set frame "depth" (dec (gobj/get frame "depth")))
-        (when (zero? (gobj/get frame "depth"))
-          (.pop (gobj/get state "frames")))
+        (.next stream)
+        (set! (.-depth frame) (dec (.-depth frame)))
+        (when (zero? (.-depth frame))
+          (.pop (.-frames state)))
         "prose-delimiter")
 
       :else
       (do
         (loop []
-          (when-not (interop/call stream "eol")
-            (let [next-character (interop/call stream "peek")]
+          (when-not (.eol stream)
+            (let [next-character (.peek stream)]
               (when-not (or (= "◊" next-character)
-                            (and (gobj/get frame "closing")
+                            (and (.-closing frame)
                                  (#{"{" "}"} next-character)))
-                (interop/call stream "next")
+                (.next stream)
                 (recur)))))
         nil))))
 
-(defn consume-clojure [stream state frame]
-  (let [clojure-state (gobj/get frame "state")
-        at-code-boundary? (identical? (gobj/get clojure-state "tokenize")
+(defn consume-clojure [^js stream ^js state ^js frame]
+  (let [^js clojure-state (.-state frame)
+        at-code-boundary? (identical? (.-tokenize clojure-state)
                                       clojure-base-tokenizer)
-        character (interop/call stream "peek")
-        context (gobj/get clojure-state "ctx")
-        previous-context (when context (gobj/get context "prev"))]
+        character (.peek stream)
+        ^js context (.-ctx clojure-state)
+        ^js previous-context (when context (.-prev context))]
     (cond
       (and at-code-boundary? (= "◊" character))
       (do
-        (interop/call stream "next")
-        (.push (gobj/get state "frames") (command-frame))
+        (.next stream)
+        (.push (.-frames state) (command-frame))
         "prose-control")
 
       (and at-code-boundary?
-           (= character (gobj/get frame "closing"))
+           (= character (.-closing frame))
            previous-context
-           (nil? (gobj/get previous-context "prev")))
+           (nil? (.-prev previous-context)))
       (do
-        (interop/call stream "next")
+        (.next stream)
         (close-child-frame state frame)
         "prose-delimiter")
 
       :else
-      (let [position (gobj/get stream "pos")
-            line (gobj/get stream "string")
+      (let [position (.-pos stream)
+            line (.-string stream)
             prose-boundary (if (and at-code-boundary? (not= ";" character))
                              (.indexOf line "◊" position)
                              -1)]
         (if (<= prose-boundary position)
-          (interop/call clojure-mode "token" stream clojure-state)
+          (.token ^js clojure-mode stream clojure-state)
           (try
-            (gobj/set stream "string" (.slice line 0 prose-boundary))
-            (interop/call clojure-mode "token" stream clojure-state)
+            (set! (.-string stream) (.slice line 0 prose-boundary))
+            (.token ^js clojure-mode stream clojure-state)
             (finally
-              (gobj/set stream "string" line))))))))
+              (set! (.-string stream) line))))))))
 
-(defn consume-verbatim [stream state]
+(defn consume-verbatim [^js stream ^js state]
   (loop [escaped? false]
-    (if (interop/call stream "eol")
+    (if (.eol stream)
       "prose-verbatim"
-      (let [character (interop/call stream "next")]
+      (let [character (.next stream)]
         (if (and (= "\"" character) (not escaped?))
           (do
-            (.pop (gobj/get state "frames"))
+            (.pop (.-frames state))
             "prose-verbatim")
           (recur (and (not escaped?) (= "\\" character))))))))
 
-(defn consume-whitespace [stream]
+(defn consume-whitespace [^js stream]
   (loop []
-    (when (and (not (interop/call stream "eol"))
-               (whitespace-character? (interop/call stream "peek")))
-      (interop/call stream "next")
+    (when (and (not (.eol stream))
+               (whitespace-character? (.peek stream)))
+      (.next stream)
       (recur))))
 
-(defn consume-command [stream state frame]
-  (let [stage (gobj/get frame "stage")]
+(defn consume-command [^js stream ^js state ^js frame]
+  (let [stage (.-stage frame)]
     (cond
       (= "verbatim" stage)
       (consume-verbatim stream state)
 
       (= "after-introducer" stage)
-      (let [character (interop/call stream "peek")]
+      (let [character (.peek stream)]
         (case character
           "◊"
           (do
-            (interop/call stream "next")
-            (gobj/set frame "stage" "name")
+            (.next stream)
+            (set! (.-stage frame) "name")
             "prose-control")
 
           "|"
           (do
-            (interop/call stream "next")
-            (gobj/set frame "stage" "symbol")
+            (.next stream)
+            (set! (.-stage frame) "symbol")
             "prose-control")
 
           "\""
           (do
-            (interop/call stream "next")
-            (gobj/set frame "stage" "verbatim")
+            (.next stream)
+            (set! (.-stage frame) "verbatim")
             "prose-verbatim")
 
           "("
           (do
-            (interop/call stream "next")
-            (gobj/set frame "stage" "child-completes-command")
-            (.push (gobj/get state "frames")
-                   (clojure-frame ")" (gobj/get state "indentUnit") true))
+            (.next stream)
+            (set! (.-stage frame) "child-completes-command")
+            (.push (.-frames state)
+                   (clojure-frame ")" (.-indentUnit state) true))
             "prose-delimiter")
 
           (do
-            (gobj/set frame "stage" "name")
+            (set! (.-stage frame) "name")
             nil)))
 
       (#{"name" "symbol"} stage)
-      (let [position (gobj/get stream "pos")
-            length (symbol-length (.slice (gobj/get stream "string") position))]
+      (let [position (.-pos stream)
+            length (symbol-length (.slice (.-string stream) position))]
         (if (zero? length)
           (do
-            (when-not (interop/call stream "eol")
-              (interop/call stream "next"))
-            (.pop (gobj/get state "frames"))
+            (when-not (.eol stream)
+              (.next stream))
+            (.pop (.-frames state))
             "invalid")
           (do
-            (gobj/set stream "pos" (+ position length))
+            (set! (.-pos stream) (+ position length))
             (if (= "name" stage)
-              (gobj/set frame "stage" "after-argument")
-              (.pop (gobj/get state "frames")))
+              (set! (.-stage frame) "after-argument")
+              (.pop (.-frames state)))
             (if (= "name" stage) "prose-command" "prose-symbol"))))
 
       (= "after-argument" stage)
-      (if (whitespace-character? (interop/call stream "peek"))
+      (if (whitespace-character? (.peek stream))
         (do
           (consume-whitespace stream)
           nil)
-        (case (interop/call stream "peek")
+        (case (.peek stream)
           "["
           (do
-            (interop/call stream "next")
-            (.push (gobj/get state "frames")
-                   (clojure-frame "]" (gobj/get state "indentUnit")))
+            (.next stream)
+            (.push (.-frames state)
+                   (clojure-frame "]" (.-indentUnit state)))
             "prose-delimiter")
 
           "{"
           (do
-            (interop/call stream "next")
-            (.push (gobj/get state "frames") (text-frame "}"))
+            (.next stream)
+            (.push (.-frames state) (text-frame "}"))
             "prose-delimiter")
 
           (do
-            (.pop (gobj/get state "frames"))
+            (.pop (.-frames state))
             nil)))
 
       :else
       (do
-        (.pop (gobj/get state "frames"))
+        (.pop (.-frames state))
         nil))))
 
-(def prose-stream-parser
-  (clj->js
-   {:name "prose"
-    :startState
-    (fn [indent-unit]
-      (clj->js {:indentUnit indent-unit :frames [(text-frame)]}))
-    :copyState
-    (fn [state]
-      (let [copy (gobj/clone state)]
-        (gobj/set copy
-                  "frames"
-                  (.map (gobj/get state "frames") copy-frame))
-        copy))
-    :token
-    (fn [stream state]
-      (loop [guard 0]
-        (if (< guard 12)
-          (let [start (gobj/get stream "pos")
-                frames (gobj/get state "frames")
-                frame (or (aget frames (dec (.-length frames))) (text-frame))]
-            (when (zero? (.-length frames))
-              (.push frames frame))
-            (let [style (case (gobj/get frame "kind")
-                          "text" (consume-text stream state frame)
-                          "clojure" (consume-clojure stream state frame)
-                          (consume-command stream state frame))]
-              (if (or (> (gobj/get stream "pos") start) style)
-                style
-                (recur (inc guard)))))
-          (do
-            (interop/call stream "next")
-            "invalid"))))
-    :tokenTable
-    {:prose-control (gobj/get prose-tags "control")
-     :prose-command (gobj/get prose-tags "command")
-     :prose-symbol (gobj/get prose-tags "symbol")
-     :prose-delimiter (gobj/get prose-tags "delimiter")
-     :prose-verbatim (gobj/get prose-tags "verbatim")}
-    :mergeTokens false}))
+(def ^js prose-stream-parser
+  #js {:name "prose"
+       :startState (fn [indent-unit]
+                     #js {:indentUnit indent-unit
+                          :frames #js [(text-frame)]})
+       :copyState (fn [^js state]
+                    (let [^js copy (gobj/clone state)]
+                      (set! (.-frames copy) (.map (.-frames state) copy-frame))
+                      copy))
+       :token (fn [^js stream ^js state]
+                (loop [guard 0]
+                  (if (< guard 12)
+                    (let [start (.-pos stream)
+                          ^js frames (.-frames state)
+                          ^js frame (or (aget frames (dec (.-length frames)))
+                                        (text-frame))]
+                      (when (zero? (.-length frames))
+                        (.push frames frame))
+                      (let [style (case (.-kind frame)
+                                    "text" (consume-text stream state frame)
+                                    "clojure" (consume-clojure stream state frame)
+                                    (consume-command stream state frame))]
+                        (if (or (> (.-pos stream) start) style)
+                          style
+                          (recur (inc guard)))))
+                    (do
+                      (.next stream)
+                      "invalid"))))
+       :tokenTable #js {:prose-control (.-control prose-tags)
+                        :prose-command (.-command prose-tags)
+                        :prose-symbol (.-symbol prose-tags)
+                        :prose-delimiter (.-delimiter prose-tags)
+                        :prose-verbatim (.-verbatim prose-tags)}
+       :mergeTokens false})
 
 (def prose-language
-  (interop/call stream-language "define" prose-stream-parser))
+  (.define stream-language prose-stream-parser))
 
 (def clojure-language
-  (interop/call stream-language "define" clojure-mode))
+  (.define stream-language clojure-mode))

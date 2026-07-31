@@ -8,4 +8,4 @@
 - SHA-256: `2837d87acf6ee0ba8e4e63765926c25a98d63883b02f88be194a86b81d3fd24a`
 - License: `DATASTAR-LICENSE.md`
 
-Do not edit the bundle. Replace it from an explicit upstream release and update the provenance above.
+Do not edit the bundle. Replace it from an explicit upstream release and update the provenance above. The artifact verifier checks this digest and requires an exact copy of the license beside the built bundle.

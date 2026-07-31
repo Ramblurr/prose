@@ -3,12 +3,18 @@
 (def persistence-key "prose-playground-authored")
 (def persistence-version 1)
 
-(defn create-example-controller [options]
-  (let [examples (js->clj (aget options "examples") :keywordize-keys true)
+(defn- state->js [{:keys [companion selectedExample source title]}]
+  #js {:companion companion
+       :selectedExample selectedExample
+       :source source
+       :title title})
+
+(defn create-example-controller [^js options]
+  (let [examples (js->clj (.-examples options) :keywordize-keys true)
         examples-by-id (into {} (map (juxt :id identity)) examples)
         default-example (first examples)
-        on-activate (aget options "onActivate")
-        storage (aget options "storage")
+        on-activate (.-onActivate options)
+        ^js storage (.-storage options)
         state_ (atom nil)
         canonical-state (fn [{:keys [companion id source title]}]
                           {:companion companion
@@ -21,10 +27,10 @@
                   (.setItem storage
                             persistence-key
                             (js/JSON.stringify
-                             (clj->js
-                              (assoc (select-keys @state_
-                                                  [:companion :selectedExample :source])
-                                     :version persistence-version)))))
+                             #js {:companion (:companion @state_)
+                                  :selectedExample (:selectedExample @state_)
+                                  :source (:source @state_)
+                                  :version persistence-version})))
                 (catch :default _)))
             (restored-state []
               (try
@@ -54,35 +60,36 @@
             (activate! [next-state]
               (reset! state_ next-state)
               (persist!)
-              (on-activate (clj->js @state_))
-              (clj->js @state_))]
-      (clj->js
-       {:editCompanion
-        (fn [companion]
-          (when (some? (:companion @state_))
-            (swap! state_ assoc :companion companion)
-            (persist!)))
+              (let [state (state->js @state_)]
+                (on-activate state)
+                state))]
+      #js {:editCompanion
+           (fn [companion]
+             (when (some? (:companion @state_))
+               (swap! state_ assoc :companion companion)
+               (persist!)))
 
-        :editSource
-        (fn [source]
-          (swap! state_ assoc :source source)
-          (persist!))
+           :editSource
+           (fn [source]
+             (swap! state_ assoc :source source)
+             (persist!))
 
-        :getState
-        (fn []
-          (clj->js @state_))
+           :getState
+           (fn []
+             (state->js @state_))
 
-        :reset
-        (fn []
-          (activate! (canonical-state
-                      (get examples-by-id (:selectedExample @state_)))))
+           :reset
+           (fn []
+             (activate! (canonical-state
+                         (get examples-by-id (:selectedExample @state_)))))
 
-        :select
-        (fn [id]
-          (activate! (canonical-state (get examples-by-id id))))
+           :select
+           (fn [id]
+             (activate! (canonical-state (get examples-by-id id))))
 
-        :start
-        (fn []
-          (reset! state_ (restored-state))
-          (on-activate (clj->js @state_))
-          (clj->js @state_))}))))
+           :start
+           (fn []
+             (reset! state_ (restored-state))
+             (let [state (state->js @state_)]
+               (on-activate state)
+               state))})))

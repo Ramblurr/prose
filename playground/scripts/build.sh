@@ -1,11 +1,16 @@
 #!/usr/bin/env sh
 set -eu
 
-rm -rf dist target
+mkdir -p target
+exec 9>target/.playground.lock
+flock 9
+
+rm -rf dist target/host target/worker
 mkdir -p dist/assets dist/examples/playground target/host target/worker
 cp static/index.html dist/index.html
 cp static/styles.css dist/assets/styles.css
 cp vendor/datastar.js dist/assets/datastar.js
+cp vendor/DATASTAR-LICENSE.md dist/assets/DATASTAR-LICENSE.md
 cp \
   ../examples/01-text-and-code.prose \
   ../examples/02-semantic-html.prose \
@@ -16,7 +21,7 @@ cp ../examples/playground/example_tags.clj dist/examples/playground/
 clojure -M -m cljs.main \
   -O advanced \
   -t bundle \
-  -co '{:browser-repl false :process-shim false :output-dir "target/host" :output-to "target/host.js"}' \
+  -co '{:browser-repl false :externs ["externs.js"] :process-shim false :output-dir "target/host" :output-to "target/host.js"}' \
   -c prose.playground.host
 pnpm exec esbuild target/host.js \
   --bundle \
@@ -27,5 +32,5 @@ pnpm exec esbuild target/host.js \
 clojure -M -m cljs.main \
   -O advanced \
   -t webworker \
-  -co '{:browser-repl false :process-shim false :output-dir "target/worker" :output-to "dist/assets/worker.js"}' \
+  -co '{:browser-repl false :externs ["externs.js"] :process-shim false :output-dir "target/worker" :output-to "dist/assets/worker.js"}' \
   -c prose.playground.worker
