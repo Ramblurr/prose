@@ -12,11 +12,8 @@
 
 Do not edit the bundle. Replace it from an explicit upstream release and update the provenance above.
 
-## License notices
+## Third-party notices
 
-The compiled host includes code from these dependencies:
+`THIRD-PARTY-NOTICES.md` records the compiled host dependencies, exact version provenance, source availability, and corresponding complete license files.
 
-- zprint **1.3.0**, tag `1.3.0`, commit `118d10b10df0b061d94c02cf1881a399b3cbc6c0`: `ZPRINT-LICENSE.md`
-- rewrite-clj **1.1.49**, tag `v1.1.49`, commit `b5f8d06f9a1149b10ff97bfde1ef65fb4f65a966`: `REWRITE-CLJ-LICENSE.md`
-
-The complete notices come from the listed upstream revisions. The artifact verifier requires exact copies of every vendored notice beside the built bundles.
+The artifact verifier requires exact copies of every notice and license beside the built bundles.

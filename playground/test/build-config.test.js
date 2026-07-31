@@ -53,8 +53,15 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
   assert.match(await text("vendor/datastar.js"), /^\/\/ Datastar v1\.0\.2$/m);
   const vendorReadme = await text("vendor/README.md");
   assert.match(vendorReadme, /Datastar \*\*v1\.0\.2\*\*/);
-  assert.match(vendorReadme, /zprint \*\*1\.3\.0\*\*/);
-  assert.match(vendorReadme, /rewrite-clj \*\*1\.1\.49\*\*/);
+  assert.match(vendorReadme, /`THIRD-PARTY-NOTICES\.md`/);
+  const notices = await text("vendor/THIRD-PARTY-NOTICES.md");
+  assert.match(notices, /zprint 1\.3\.0/);
+  assert.match(notices, /rewrite-clj 1\.1\.49/);
+  assert.match(notices, /tools\.reader 1\.5\.0/);
+  assert.match(
+    notices,
+    /https:\/\/github\.com\/clojure\/tools\.reader\/tree\/v1\.5\.0/,
+  );
   assert.match(
     await text("vendor/ZPRINT-LICENSE.md"),
     /Copyright \(c\) 2016-2023 Kim Kinnear/,
@@ -62,6 +69,10 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
   assert.match(
     await text("vendor/REWRITE-CLJ-LICENSE.md"),
     /Copyright \(c\) 2013-2018 Yannick Scherer/,
+  );
+  assert.match(
+    await text("vendor/TOOLS-READER-LICENSE.md"),
+    /^Eclipse Public License - v 1\.0$/m,
   );
 });
 
@@ -108,6 +119,14 @@ test("builds separate optimized ClojureScript host and worker targets without in
   assert.match(
     build,
     /cp vendor\/REWRITE-CLJ-LICENSE\.md dist\/assets\/REWRITE-CLJ-LICENSE\.md/,
+  );
+  assert.match(
+    build,
+    /cp vendor\/TOOLS-READER-LICENSE\.md dist\/assets\/TOOLS-READER-LICENSE\.md/,
+  );
+  assert.match(
+    build,
+    /cp vendor\/THIRD-PARTY-NOTICES\.md dist\/assets\/THIRD-PARTY-NOTICES\.md/,
   );
   assert.ok(
     build.indexOf("-c prose.playground.worker") <

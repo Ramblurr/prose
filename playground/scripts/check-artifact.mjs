@@ -20,6 +20,8 @@ const required = [
   "assets/DATASTAR-LICENSE.md",
   "assets/ZPRINT-LICENSE.md",
   "assets/REWRITE-CLJ-LICENSE.md",
+  "assets/TOOLS-READER-LICENSE.md",
+  "assets/THIRD-PARTY-NOTICES.md",
   "assets/host.js",
   "assets/worker.js",
   ...examplePaths,
@@ -92,15 +94,26 @@ assert.equal(
 const bundledLicenses = [
   ["ZPRINT-LICENSE.md", /Copyright \(c\) 2016-2023 Kim Kinnear/],
   ["REWRITE-CLJ-LICENSE.md", /Copyright \(c\) 2013-2018 Yannick Scherer/],
+  ["TOOLS-READER-LICENSE.md", /^Eclipse Public License - v 1\.0$/m],
 ];
-for (const [name, copyright] of bundledLicenses) {
+for (const [name, expectedContent] of bundledLicenses) {
   const license = await readFile(new URL(name, assets), "utf8");
   assert.equal(
     license,
     await readFile(new URL(`../vendor/${name}`, import.meta.url), "utf8"),
   );
-  assert.match(license, copyright);
+  assert.match(license, expectedContent);
 }
+
+const notices = await readFile(new URL("THIRD-PARTY-NOTICES.md", assets), "utf8");
+assert.equal(
+  notices,
+  await readFile(new URL("../vendor/THIRD-PARTY-NOTICES.md", import.meta.url), "utf8"),
+);
+assert.match(
+  notices,
+  /https:\/\/github\.com\/clojure\/tools\.reader\/tree\/v1\.5\.0/,
+);
 
 const host = await readFile(new URL("host.js", assets), "utf8");
 await checkJavaScript(host);
