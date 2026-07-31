@@ -11,6 +11,8 @@ cp static/index.html dist/index.html
 cp static/styles.css dist/assets/styles.css
 cp vendor/datastar.js dist/assets/datastar.js
 cp vendor/DATASTAR-LICENSE.md dist/assets/DATASTAR-LICENSE.md
+cp vendor/ZPRINT-LICENSE.md dist/assets/ZPRINT-LICENSE.md
+cp vendor/REWRITE-CLJ-LICENSE.md dist/assets/REWRITE-CLJ-LICENSE.md
 cp \
   ../examples/01-text-and-code.prose \
   ../examples/02-semantic-html.prose \

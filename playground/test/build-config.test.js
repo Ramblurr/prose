@@ -51,7 +51,18 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
   assert.deepEqual(lockPins.filter((pin) => !lock.includes(pin)), []);
   assert.doesNotMatch(lock, /starfederation\/datastar/);
   assert.match(await text("vendor/datastar.js"), /^\/\/ Datastar v1\.0\.2$/m);
-  assert.match(await text("vendor/README.md"), /v1\.0\.2/);
+  const vendorReadme = await text("vendor/README.md");
+  assert.match(vendorReadme, /Datastar \*\*v1\.0\.2\*\*/);
+  assert.match(vendorReadme, /zprint \*\*1\.3\.0\*\*/);
+  assert.match(vendorReadme, /rewrite-clj \*\*1\.1\.49\*\*/);
+  assert.match(
+    await text("vendor/ZPRINT-LICENSE.md"),
+    /Copyright \(c\) 2016-2023 Kim Kinnear/,
+  );
+  assert.match(
+    await text("vendor/REWRITE-CLJ-LICENSE.md"),
+    /Copyright \(c\) 2013-2018 Yannick Scherer/,
+  );
 });
 
 test("documents a script-disabled frozen install", async () => {
@@ -92,6 +103,11 @@ test("builds separate optimized ClojureScript host and worker targets without in
   assert.match(
     build,
     /cp vendor\/DATASTAR-LICENSE\.md dist\/assets\/DATASTAR-LICENSE\.md/,
+  );
+  assert.match(build, /cp vendor\/ZPRINT-LICENSE\.md dist\/assets\/ZPRINT-LICENSE\.md/);
+  assert.match(
+    build,
+    /cp vendor\/REWRITE-CLJ-LICENSE\.md dist\/assets\/REWRITE-CLJ-LICENSE\.md/,
   );
   assert.ok(
     build.indexOf("-c prose.playground.worker") <

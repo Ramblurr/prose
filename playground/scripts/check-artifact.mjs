@@ -18,6 +18,8 @@ const required = [
   "assets/styles.css",
   "assets/datastar.js",
   "assets/DATASTAR-LICENSE.md",
+  "assets/ZPRINT-LICENSE.md",
+  "assets/REWRITE-CLJ-LICENSE.md",
   "assets/host.js",
   "assets/worker.js",
   ...examplePaths,
@@ -87,6 +89,18 @@ assert.equal(
   await readFile(new URL("DATASTAR-LICENSE.md", assets), "utf8"),
   await readFile(new URL("../vendor/DATASTAR-LICENSE.md", import.meta.url), "utf8"),
 );
+const bundledLicenses = [
+  ["ZPRINT-LICENSE.md", /Copyright \(c\) 2016-2023 Kim Kinnear/],
+  ["REWRITE-CLJ-LICENSE.md", /Copyright \(c\) 2013-2018 Yannick Scherer/],
+];
+for (const [name, copyright] of bundledLicenses) {
+  const license = await readFile(new URL(name, assets), "utf8");
+  assert.equal(
+    license,
+    await readFile(new URL(`../vendor/${name}`, import.meta.url), "utf8"),
+  );
+  assert.match(license, copyright);
+}
 
 const host = await readFile(new URL("host.js", assets), "utf8");
 await checkJavaScript(host);
