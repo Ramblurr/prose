@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { Worker } from "node:worker_threads";
-import { renderRequest } from "../src/protocol.js";
+import seams from "../target/test/public.cjs";
+
+const { renderRequest } = seams;
 
 const defaultExample = await readFile(
   new URL("../../examples/01-text-and-code.prose", import.meta.url),

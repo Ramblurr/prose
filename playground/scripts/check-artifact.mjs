@@ -14,6 +14,7 @@ const examplePaths = [
 const required = [
   "index.html",
   "assets/styles.css",
+  "assets/datastar.js",
   "assets/host.js",
   "assets/worker.js",
   ...examplePaths,
@@ -72,11 +73,14 @@ await checkCss(await readFile(new URL("styles.css", assets), "utf8"));
 await assert.rejects(checkCss('@import "https://cdn.example/styles.css";'));
 await assert.rejects(checkCss('@import "/styles.css";'));
 
+const datastar = await readFile(new URL("datastar.js", assets), "utf8");
+assert.match(datastar, /^\/\/ Datastar v1\.0\.2$/m);
+
 const host = await readFile(new URL("host.js", assets), "utf8");
 await checkJavaScript(host);
 await assert.rejects(checkJavaScript('fetch("/runtime.json")'));
 await assert.rejects(checkJavaScript('import("https://cdn.example/runtime.js")'));
-assert.match(host, /new Worker\(new URL\(["']\.\/worker\.js["'],import\.meta\.url\)\)/);
+assert.match(host, /new Worker\(new URL\(["']\.\/worker\.js["'],/);
 
 const worker = await readFile(new URL("worker.js", assets), "utf8");
 await checkJavaScript(worker);

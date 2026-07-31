@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRenderController } from "../src/render-controller.js";
+import seams from "../target/test/public.cjs";
+
+const { createRenderController } = seams;
 
 class ControlledWorker {
   constructor() {

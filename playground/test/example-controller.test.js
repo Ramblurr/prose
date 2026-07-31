@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createExampleController } from "../src/example-controller.js";
+import seams from "../target/test/public.cjs";
+
+const { createExampleController } = seams;
 
 const canonicalExamples = [
   {
@@ -55,17 +57,15 @@ function playground(storage = new MemoryStorage()) {
   return { activations, controller, storage };
 }
 
-test("selects, edits, hides, and exactly resets the paired Example", () => {
+test("selects, edits, and exactly resets the paired Example", () => {
   const { activations, controller } = playground();
   controller.start();
   controller.select("custom-tag-function");
   controller.editSource("Authored Playground source\n");
   controller.editCompanion("(ns playground.example-tags)\n(def edited true)\n");
-  controller.setCompanionVisible(false);
 
   assert.deepEqual(controller.getState(), {
     companion: "(ns playground.example-tags)\n(def edited true)\n",
-    companionVisible: false,
     selectedExample: "custom-tag-function",
     source: "Authored Playground source\n",
     title: "Custom tag function",
@@ -74,7 +74,6 @@ test("selects, edits, hides, and exactly resets the paired Example", () => {
   controller.reset();
   assert.deepEqual(controller.getState(), {
     companion: "(ns playground.example-tags)\n",
-    companionVisible: true,
     selectedExample: "custom-tag-function",
     source: "Custom canonical\n",
     title: "Custom tag function",
@@ -86,7 +85,7 @@ test("selects, edits, hides, and exactly resets the paired Example", () => {
   ]);
 });
 
-test("switching to a single-source Example clears and hides the Companion", () => {
+test("switching to a single-source Example clears the Companion", () => {
   const { controller } = playground();
   controller.start();
   controller.select("custom-tag-function");
@@ -96,7 +95,6 @@ test("switching to a single-source Example clears and hides the Companion", () =
 
   assert.deepEqual(controller.getState(), {
     companion: null,
-    companionVisible: false,
     selectedExample: "semantic-html",
     source: "Semantic canonical\n",
     title: "Semantic HTML",
@@ -109,7 +107,6 @@ test("reload restores the complete authored program and activates a fresh Render
   first.controller.select("custom-tag-function");
   first.controller.editSource("Authored custom source\n");
   first.controller.editCompanion("(ns playground.example-tags)\n(def authored true)\n");
-  first.controller.setCompanionVisible(false);
 
   const reloaded = playground(first.storage);
   assert.deepEqual(reloaded.activations, []);
@@ -117,7 +114,6 @@ test("reload restores the complete authored program and activates a fresh Render
   reloaded.controller.start();
   assert.deepEqual(reloaded.activations, [{
     companion: "(ns playground.example-tags)\n(def authored true)\n",
-    companionVisible: false,
     selectedExample: "custom-tag-function",
     source: "Authored custom source\n",
     title: "Custom tag function",
@@ -126,7 +122,6 @@ test("reload restores the complete authored program and activates a fresh Render
   reloaded.controller.reset();
   assert.deepEqual(reloaded.controller.getState(), {
     companion: "(ns playground.example-tags)\n",
-    companionVisible: true,
     selectedExample: "custom-tag-function",
     source: "Custom canonical\n",
     title: "Custom tag function",
@@ -138,6 +133,7 @@ test("reload discards persisted transient state", () => {
     diagnostic: { phase: "read" },
     output: { html: "stale" },
     popoverOpen: true,
+    companionVisible: true,
     renderState: "failed",
     selectedExample: "semantic-html",
     shorthandPending: true,
@@ -151,7 +147,6 @@ test("reload discards persisted transient state", () => {
 
   assert.deepEqual(controller.getState(), {
     companion: null,
-    companionVisible: false,
     selectedExample: "semantic-html",
     source: "Restored authored source\n",
     title: "Semantic HTML",

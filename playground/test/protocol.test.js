@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { protocolVersion, readinessState, renderRequest } from "../src/protocol.js";
+import seams from "../target/test/public.cjs";
+
+const { protocolVersion, readinessState, renderRequest } = seams;
 
 test("accepts the version 1 readiness handshake", () => {
   assert.equal(protocolVersion, 1);

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { previewDocument } from "../src/preview-document.js";
+import seams from "../target/test/public.cjs";
+
+const { previewDocument } = seams;
 
 const generatedHtml = '<style>p { color: red; }</style><p style="font-weight: 900">Hello</p>';
 

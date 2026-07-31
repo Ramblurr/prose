@@ -26,9 +26,6 @@ importers:
       '@lezer/highlight':
         specifier: 1.2.3
         version: 1.2.3
-      '@starfederation/datastar':
-        specifier: 1.0.0-beta.11
-        version: 1.0.0-beta.11
     devDependencies:
       esbuild:
         specifier: 0.28.1
@@ -219,10 +216,6 @@ packages:
   '@marijn/find-cluster-break@1.0.3':
     resolution: {integrity: sha512-FY+MKLBoTsLNJF/eLWaOsXGdz6uh3Iu1axjPf6TUq92IYumcTcXWHoS747JARLkcdlJ/Waiaxc5wQfFO8jC6NA==}
 
-  '@starfederation/datastar@1.0.0-beta.11':
-    resolution: {integrity: sha512-62TtP/Rm8HVnWxZm1rqhZo+0F57V7A6bKE0FMFMP+1ZeRoDd3lBqYUEdcbSPtIYf9fjoPEUd4TU3bgWS0CGy9w==}
-    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
-
   crelt@1.0.7:
     resolution: {integrity: sha512-aK6BbWfhf4U/wCcLHKPJl/xa6VkVstRaPywWtMKGwuOLc/wZTyQYuoxgvZnNsBvv7Kg3YTBQYYBCggcviQczuA==}
 
@@ -359,8 +352,6 @@ snapshots:
       '@lezer/common': 1.5.2
 
   '@marijn/find-cluster-break@1.0.3': {}
-
-  '@starfederation/datastar@1.0.0-beta.11': {}
 
   crelt@1.0.7: {}
 

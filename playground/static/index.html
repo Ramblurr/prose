@@ -7,15 +7,17 @@
   <link rel="stylesheet" href="./assets/styles.css">
 </head>
 <body
-  data-signals="{workerReady: false, editorReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.', renderStatus: 'Waiting to render', resultView: 'preview', htmlResult: '', readerResult: '', evaluatedResult: '', diagnosticPhase: '', diagnosticMessage: '', diagnosticDetail: '', stalePreview: false}"
-  data-on-prose-playground-state__window="
+  data-signals="{appearance: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', autoRender: true, previewThemeEnabled: true, examplesReady: false, selectedExample: 'text-and-code', exampleTitle: 'Text and code', companionAvailable: false, companionVisible: false, emptyResult: false, workerReady: false, editorReady: false, workerState: 'initializing', workerStatus: 'Initializing…', workerStatusDetail: 'Starting the isolated render worker.', renderStatus: 'Waiting to render', resultView: 'preview', htmlResult: '', readerResult: '', evaluatedResult: '', diagnosticPhase: '', diagnosticMessage: '', diagnosticDetail: '', stalePreview: false}"
+  data-attr:data-appearance="$appearance"
+  data-on:prose-playground-state__window="
+    $examplesReady = evt.detail.examplesReady ?? $examplesReady;
+    $emptyResult = evt.detail.emptyResult ?? $emptyResult;
     $workerReady = evt.detail.workerReady ?? $workerReady;
     $editorReady = evt.detail.editorReady ?? $editorReady;
     $workerState = evt.detail.workerState ?? $workerState;
     $workerStatus = evt.detail.workerStatus ?? $workerStatus;
     $workerStatusDetail = evt.detail.workerStatusDetail ?? $workerStatusDetail;
     $renderStatus = evt.detail.renderStatus ?? $renderStatus;
-    $resultView = evt.detail.resultView ?? $resultView;
     $htmlResult = evt.detail.htmlResult ?? $htmlResult;
     $readerResult = evt.detail.readerResult ?? $readerResult;
     $evaluatedResult = evt.detail.evaluatedResult ?? $evaluatedResult;
@@ -23,16 +25,41 @@
     $diagnosticMessage = evt.detail.diagnosticMessage ?? $diagnosticMessage;
     $diagnosticDetail = evt.detail.diagnosticDetail ?? $diagnosticDetail;
     $stalePreview = evt.detail.stalePreview ?? $stalePreview
-  ">
+  "
+  data-on:prose-playground-program__window="
+    $selectedExample = evt.detail.selectedExample;
+    $exampleTitle = evt.detail.title;
+    $companionAvailable = evt.detail.companion !== null;
+    $companionVisible = evt.detail.companion !== null
+  "
+  data-on:prose-playground-render-state__window="
+    $emptyResult = evt.detail.renderState === 'failed' && evt.detail.output === null;
+    $workerReady = evt.detail.workerState === 'ready';
+    $workerState = evt.detail.workerState;
+    $workerStatus = ({failed: 'Initialization failed', initializing: 'Initializing…', ready: 'Ready'})[evt.detail.workerState];
+    $renderStatus = ({failed: 'Render failed', rendered: 'Rendered', rendering: 'Rendering…', waiting: 'Waiting to render'})[evt.detail.renderState];
+    $htmlResult = evt.detail.output?.html ?? '';
+    $readerResult = evt.detail.output?.reader ?? '';
+    $evaluatedResult = evt.detail.output?.evaluated ?? '';
+    $diagnosticPhase = evt.detail.diagnostic ? ({'companion-evaluate': 'Companion evaluation', compile: 'Compilation', initialization: 'Initialization', 'playground-evaluate': 'Playground evaluation', read: 'Reader', timeout: 'Timeout'})[evt.detail.diagnostic.phase] ?? evt.detail.diagnostic.phase : '';
+    $diagnosticMessage = evt.detail.diagnostic?.message ?? '';
+    $diagnosticDetail = evt.detail.diagnosticDetail;
+    $stalePreview = evt.detail.stale;
+    $workerStatusDetail = evt.detail.diagnostic ? $diagnosticPhase + ': ' + evt.detail.diagnostic.message : evt.detail.workerState === 'ready' ? 'The render worker is ready.' : 'Starting the isolated render worker.'
+  "
+  data-on:prose-playground-edit__window="$autoRender && globalThis.prosePlayground.schedule(evt.detail.source, evt.detail.companion)">
   <header class="app-header">
     <div class="brand-lockup">
       <span class="brand-mark" aria-hidden="true">P</span>
       <div><strong>Prose</strong><h1>Playground</h1></div>
     </div>
     <div class="actions">
-      <label class="auto-control"><input id="auto-render" type="checkbox" checked> Auto</label>
+      <label class="auto-control"><input id="auto-render" type="checkbox" checked
+               data-bind="autoRender"
+               data-on:change="!$autoRender && globalThis.prosePlayground.cancelScheduled()"> Auto</label>
       <button id="render" class="primary-action" type="button"
-              data-attr-disabled="!($workerReady && $editorReady)" disabled>Render</button>
+              data-attr:disabled="!($workerReady && $editorReady)"
+              data-on:click="globalThis.prosePlayground.render()" disabled>Render</button>
       <button id="settings-trigger" type="button" popovertarget="settings-popover"
               aria-label="Playground settings">Settings</button>
     </div>
@@ -40,19 +67,20 @@
       <h2>Playground settings</h2>
       <fieldset>
         <legend>Interface appearance</legend>
-        <label><input type="radio" name="appearance" value="light"> Light</label>
-        <label><input type="radio" name="appearance" value="dark"> Dark</label>
+        <label><input type="radio" name="appearance" value="light" data-bind="appearance"> Light</label>
+        <label><input type="radio" name="appearance" value="dark" data-bind="appearance"> Dark</label>
       </fieldset>
       <label class="setting-row" for="preview-theme">
         <span><strong>Preview theme</strong><small>Presentation only; never included in generated HTML.</small></span>
-        <input id="preview-theme" type="checkbox" role="switch" checked>
+        <input id="preview-theme" type="checkbox" role="switch" checked
+               data-bind="previewThemeEnabled">
       </label>
     </div>
   </header>
 
   <div class="status-bar">
     <span id="worker-status" class="worker-status" data-state="initializing"
-          data-attr-data-state="$workerState" data-text="$workerStatus">Initializing…</span>
+          data-attr:data-state="$workerState" data-text="$workerStatus">Initializing…</span>
     <span class="render-status" data-text="$renderStatus">Waiting to render</span>
   </div>
 
@@ -61,7 +89,9 @@
       <div class="pane-heading source-heading">
         <label class="example-control" for="example-select">
           <span>Example</span>
-          <select id="example-select" disabled>
+          <select id="example-select" data-bind="selectedExample"
+                  data-attr:disabled="!$examplesReady"
+                  data-on:change="globalThis.prosePlayground.selectExample(evt.target.value)" disabled>
             <option value="text-and-code">Text and code</option>
             <option value="semantic-html">Semantic HTML</option>
             <option value="custom-tag-function">Custom tag function</option>
@@ -70,16 +100,24 @@
         </label>
         <div class="source-actions">
           <button id="toggle-companion" type="button" aria-controls="companion-editor-section"
+                  data-attr:hidden="!$companionAvailable"
+                  data-attr="{'aria-expanded': $companionVisible ? 'true' : 'false'}"
+                  data-on:click="$companionVisible = !$companionVisible"
+                  data-text="$companionVisible ? 'Hide Companion namespace' : 'Show Companion namespace'"
                   aria-expanded="false" hidden>Show Companion namespace</button>
-          <button id="reset-example" type="button" disabled>Reset</button>
+          <button id="reset-example" type="button"
+                  data-attr:disabled="!$examplesReady"
+                  data-on:click="globalThis.prosePlayground.resetExample()" disabled>Reset</button>
         </div>
-        <h2 id="source-heading">Text and code</h2>
+        <h2 id="source-heading" data-text="$exampleTitle">Text and code</h2>
       </div>
 
-      <div id="editor-stack" class="editor-stack">
+      <div id="editor-stack" class="editor-stack"
+           data-class:companion-visible="$companionVisible">
         <section class="editor-section" aria-labelledby="source-editor-label">
           <h3 id="source-editor-label">Playground source</h3>
-          <div id="source-editor" class="editor-shell" aria-busy="true"></div>
+          <div id="source-editor" class="editor-shell" aria-busy="true"
+               data-attr:aria-busy="!$editorReady"></div>
           <p class="editor-hint">
             Type <kbd>@</kbd> directly for <code>◊</code>; type <kbd>@@</kbd> without
             interruption for a literal <code>@</code>.
@@ -87,17 +125,19 @@
           </p>
         </section>
         <section id="companion-editor-section" class="editor-section"
-                 aria-labelledby="companion-editor-label" hidden>
+                 aria-labelledby="companion-editor-label"
+                 data-attr:hidden="!$companionVisible" hidden>
           <h3 id="companion-editor-label">Companion namespace</h3>
-          <div id="companion-editor" class="editor-shell" aria-busy="true"></div>
+          <div id="companion-editor" class="editor-shell" aria-busy="true"
+               data-attr:aria-busy="!$editorReady"></div>
         </section>
       </div>
 
       <section id="diagnostic" class="diagnostic"
-               data-attr-hidden="!$diagnosticMessage" hidden>
+               data-attr:hidden="!$diagnosticMessage" hidden>
         <strong data-text="$diagnosticPhase">Render</strong>
         <span data-text="$diagnosticMessage"></span>
-        <small data-attr-hidden="!$diagnosticDetail" data-text="$diagnosticDetail" hidden></small>
+        <small data-attr:hidden="!$diagnosticDetail" data-text="$diagnosticDetail" hidden></small>
       </section>
     </section>
 
@@ -106,30 +146,36 @@
         <h2 id="result-heading">Result</h2>
         <fieldset class="result-choices">
           <legend>Result view</legend>
-          <label><input type="radio" name="result-view" value="preview" checked><span>Preview</span></label>
-          <label><input type="radio" name="result-view" value="html"><span>HTML</span></label>
-          <label><input type="radio" name="result-view" value="reader"><span>Reader</span></label>
-          <label><input type="radio" name="result-view" value="evaluated"><span>Evaluated</span></label>
+          <label><input type="radio" name="result-view" value="preview" checked data-bind="resultView"><span>Preview</span></label>
+          <label><input type="radio" name="result-view" value="html" data-bind="resultView"><span>HTML</span></label>
+          <label><input type="radio" name="result-view" value="reader" data-bind="resultView"><span>Reader</span></label>
+          <label><input type="radio" name="result-view" value="evaluated" data-bind="resultView"><span>Evaluated</span></label>
         </fieldset>
       </div>
 
-      <div id="result-shell" class="result-shell">
-        <div id="empty-result" class="empty-result" hidden>
+      <div id="result-shell" class="result-shell"
+           data-class:empty-result-visible="$emptyResult">
+        <div id="empty-result" class="empty-result"
+             data-attr:hidden="!$emptyResult" hidden>
           <strong>No result yet</strong>
           <span>Resolve the Render failure in the source to create the first result.</span>
         </div>
-        <section id="preview-shell" class="result-content" data-attr-hidden="$resultView !== 'preview'">
-          <p id="stale-preview-status" class="stale-preview-status" hidden>Stale preview</p>
+        <section id="preview-shell" class="result-content"
+                 data-attr:hidden="$resultView !== 'preview'"
+                 data-class:stale-preview="$stalePreview">
+          <p id="stale-preview-status" class="stale-preview-status"
+             data-attr:hidden="!$stalePreview" hidden>Stale preview</p>
           <iframe id="preview" sandbox="" referrerpolicy="no-referrer"
+                  data-attr:srcdoc="$htmlResult && globalThis.prosePlayground.previewDocument($htmlResult, $appearance, $previewThemeEnabled)"
                   title="Rendered HTML Preview"></iframe>
         </section>
-        <section class="result-content" data-attr-hidden="$resultView !== 'html'" hidden>
+        <section class="result-content" data-attr:hidden="$resultView !== 'html'" hidden>
           <pre id="html-result" data-text="$htmlResult"></pre>
         </section>
-        <section class="result-content" data-attr-hidden="$resultView !== 'reader'" hidden>
+        <section class="result-content" data-attr:hidden="$resultView !== 'reader'" hidden>
           <pre id="reader-result" data-text="$readerResult"></pre>
         </section>
-        <section class="result-content" data-attr-hidden="$resultView !== 'evaluated'" hidden>
+        <section class="result-content" data-attr:hidden="$resultView !== 'evaluated'" hidden>
           <pre id="evaluated-result" data-text="$evaluatedResult"></pre>
         </section>
       </div>
@@ -139,5 +185,6 @@
   </main>
 
   <script type="module" src="./assets/host.js"></script>
+  <script type="module" src="./assets/datastar.js"></script>
 </body>
 </html>

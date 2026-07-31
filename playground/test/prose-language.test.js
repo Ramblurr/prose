@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
-import { EditorState } from "@codemirror/state";
-import { highlightTree, tagHighlighter, tags } from "@lezer/highlight";
-import {
+import seams from "../target/test/public.cjs";
+
+const {
+  EditorState,
   balancedSyntax,
   clojureLanguage,
+  ensureSyntaxTree,
+  highlightingFor,
+  highlightTree,
   proseLanguage,
   proseTags,
-} from "../src/prose-language.js";
+  syntaxTree,
+  tagHighlighter,
+  tags,
+} = seams;
 
 function tokens(source, language = proseLanguage) {
   const state = EditorState.create({ doc: source, extensions: [language] });
@@ -49,6 +55,13 @@ function semanticTokens(source, language = proseLanguage) {
   });
   return result;
 }
+
+test("installs the balanced browser highlight style", () => {
+  const state = EditorState.create({ extensions: [balancedSyntax] });
+
+  assert.equal(highlightingFor(state, [proseTags.control]), "tok-prose-control");
+  assert.equal(highlightingFor(state, [tags.keyword]), "tok-clj-keyword");
+});
 
 test("tokenizes all five command forms with stable Prose semantic tags", () => {
   const source = "◊tag[a][b]{outer {inner} ◊nested{x}} ◊◊raw ◊|value ◊\"verbatim\" ◊(+ 1 2)";

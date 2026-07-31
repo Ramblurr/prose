@@ -1,13 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { history, redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
-import { EditorState } from "@codemirror/state";
-import {
+import seams from "../target/test/public.cjs";
+
+const {
+  EditorState,
   atInputTransaction,
   atShorthand,
   clearPendingTransaction,
+  history,
+  redo,
+  redoDepth,
   shorthandPending,
-} from "../src/lozenge-shorthand.js";
+  undo,
+  undoDepth,
+} = seams;
 
 function harness(doc = "", selection = doc.length, shorthand = true) {
   let state = EditorState.create({

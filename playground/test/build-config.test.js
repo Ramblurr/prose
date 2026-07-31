@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 const projectFile = (path) => new URL(`../${path}`, import.meta.url);
@@ -27,7 +27,6 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
         "@codemirror/state": "6.7.1",
         "@codemirror/view": "6.43.6",
         "@lezer/highlight": "1.2.3",
-        "@starfederation/datastar": "1.0.0-beta.11",
       },
       devDependencies: { esbuild: "0.28.1" },
       private: true,
@@ -41,10 +40,12 @@ test("keeps the Playground dependency graph isolated and pinned", async () => {
     "'@codemirror/state@6.7.1'",
     "'@codemirror/view@6.43.6'",
     "'@lezer/highlight@1.2.3'",
-    "'@starfederation/datastar@1.0.0-beta.11'",
     "esbuild@0.28.1",
   ];
   assert.deepEqual(lockPins.filter((pin) => !lock.includes(pin)), []);
+  assert.doesNotMatch(lock, /starfederation\/datastar/);
+  assert.match(await text("vendor/datastar.js"), /^\/\/ Datastar v1\.0\.2$/m);
+  assert.match(await text("vendor/README.md"), /v1\.0\.2/);
 });
 
 test("documents a script-disabled frozen install", async () => {
@@ -55,15 +56,40 @@ test("documents a script-disabled frozen install", async () => {
   assert.equal(await text(".npmrc"), "ignore-scripts=true\n");
 });
 
-test("builds without installing and disables worker shims", async () => {
+test("builds separate optimized ClojureScript host and worker targets without installing", async () => {
   const build = await text("scripts/build.sh");
 
   assert.doesNotMatch(build, /pnpm (?:add|install)/);
-  assert.match(build, /pnpm exec esbuild/);
-  assert.match(build, /-O advanced/);
+  assert.equal([...build.matchAll(/-O advanced/g)].length, 2);
+  assert.match(build, /-t bundle/);
+  assert.match(build, /-c prose\.playground\.host/);
+  assert.match(build, /pnpm exec esbuild target\/host\.js/);
   assert.match(build, /-t webworker/);
-  assert.match(build, /:browser-repl false/);
-  assert.match(build, /:process-shim false/);
+  assert.match(build, /-c prose\.playground\.worker/);
+  assert.equal([...build.matchAll(/:browser-repl false/g)].length, 2);
+  assert.equal([...build.matchAll(/:process-shim false/g)].length, 2);
+  assert.match(build, /cp vendor\/datastar\.js dist\/assets\/datastar\.js/);
+});
+
+test("keeps every hand-authored production module in ClojureScript", async () => {
+  const sourceFiles = await readdir(projectFile("src"), { recursive: true });
+  const productionJavaScript = sourceFiles.filter((path) => path.endsWith(".js"));
+  const productionClojureScript = sourceFiles
+    .filter((path) => path.endsWith(".cljs"))
+    .sort();
+
+  assert.deepEqual(productionJavaScript, []);
+  assert.deepEqual(productionClojureScript, [
+    "prose/playground/example_controller.cljs",
+    "prose/playground/host.cljs",
+    "prose/playground/interop.cljs",
+    "prose/playground/lozenge_shorthand.cljs",
+    "prose/playground/preview_document.cljs",
+    "prose/playground/prose_language.cljs",
+    "prose/playground/protocol.cljs",
+    "prose/playground/render_controller.cljs",
+    "prose/playground/worker.cljs",
+  ]);
 });
 
 test("keeps the four complete Example programs canonical and ordered", async () => {
@@ -142,7 +168,7 @@ test("provides the fixed paired-source controls without project or export action
   assert.match(html, /<h3 id="source-editor-label">Playground source<\/h3>/);
   assert.match(html, /<h3 id="companion-editor-label">Companion namespace<\/h3>/);
   assert.match(html, /<button id="toggle-companion"[^>]+>Show Companion namespace<\/button>/);
-  assert.match(html, /<button id="reset-example" type="button" disabled>Reset<\/button>/);
+  assert.match(html, /<button id="reset-example"[\s\S]+?>Reset<\/button>/);
   assert.doesNotMatch(
     html,
     />\s*(?:Add source|Copy|Download|Export|Package|Publish|Share)\s*</i,
@@ -150,16 +176,13 @@ test("provides the fixed paired-source controls without project or export action
 });
 
 test("installs Prose-aware source editing and literal Companion editing", async () => {
-  const host = await text("src/host.js");
+  const host = await text("src/prose/playground/host.cljs");
   const html = await text("static/index.html");
   const styles = await text("static/styles.css");
 
-  assert.match(host, /language: proseLanguage,[\s\S]+shorthand: true/);
-  assert.match(host, /language: clojureLanguage/);
-  assert.doesNotMatch(
-    host.match(/companionEditor = createEditor\(\{[\s\S]+?\n  \}\);/)?.[0] ?? "",
-    /shorthand: true/,
-  );
+  assert.match(host, /:language prose-language\/prose-language/);
+  assert.match(host, /:language prose-language\/clojure-language/);
+  assert.equal([...host.matchAll(/:shorthand true/g)].length, 1);
   assert.match(html, /Type <kbd>@<\/kbd> directly for <code>◊<\/code>/);
   assert.match(html, /without\s+interruption for a literal <code>@<\/code>/);
   assert.match(styles, /\.tok-prose-command/);
@@ -185,28 +208,78 @@ test("uses native responsive interface controls with their approved ownership", 
   assert.doesNotMatch(html, /role="tab(?:list)?"|tabindex=/);
 });
 
-test("uses standard Datastar custom-event ingress for every declared signal", async () => {
-  const host = await text("src/host.js");
+test("gives every declared signal standard Datastar 1.0.2 ownership", async () => {
+  const host = await text("src/prose/playground/host.cljs");
   const html = await text("static/index.html");
+  const exampleController = await text("src/prose/playground/example_controller.cljs");
   const signalDeclaration = html.match(/data-signals="([^"]+)"/)?.[1] ?? "";
   const eventBinding = html.match(
-    /data-on-prose-playground-state__window="([^"]+)"/s,
+    /data-on:prose-playground-state__window="([^"]+)"/s,
   )?.[1] ?? "";
-  const declaredSignals = [...signalDeclaration.matchAll(/\b([A-Za-z]\w*):/g)]
+  assert.doesNotMatch(eventBinding, /data-on:/);
+  const declaredSignals = [
+    ...signalDeclaration.matchAll(/(?:^|[,{]\s*)([A-Za-z]\w*):/g),
+  ]
     .map(([, signal]) => signal)
     .sort();
   const patchedSignals = [...eventBinding.matchAll(
     /\$(\w+)\s*=\s*evt\.detail\.\1\s*\?\?\s*\$\1/g,
-  )].map(([, signal]) => signal).sort();
+  )].map(([, signal]) => signal);
+  const boundSignals = [...html.matchAll(/data-bind="(\w+)"/g)]
+    .map(([, signal]) => signal);
+  const expressionSignals = [...html.matchAll(/\$(\w+)\s*=/g)]
+    .map(([, signal]) => signal);
+  const ownedSignals = [
+    ...new Set([...patchedSignals, ...boundSignals, ...expressionSignals]),
+  ].sort();
 
-  assert.match(host, /import "@starfederation\/datastar\/bundles\/datastar";/);
+  assert.ok(
+    html.indexOf("./assets/host.js") < html.indexOf("./assets/datastar.js"),
+  );
+  assert.doesNotMatch(host, /starfederation\/datastar/);
   assert.match(
     host,
-    /window\.dispatchEvent\(new CustomEvent\(stateEvent, \{ detail \}\)\)/,
+    /\.dispatchEvent\s+js\/window[\s\S]+js\/CustomEvent\. event/,
   );
   assert.doesNotMatch(
     host,
     /PluginType\s*\.\s*Watcher|playgroundStateAdapter|signals\s*\.\s*merge\s*\(/,
   );
-  assert.deepEqual(patchedSignals, declaredSignals);
+  assert.doesNotMatch(host, /\(atom\s|classList/);
+  assert.equal([...host.matchAll(/addEventListener/g)].length, 1);
+  assert.match(host, /addEventListener js\/document[\s\S]+"datastar-ready"/);
+  assert.doesNotMatch(html, /data-(?:attr|class|on)-[a-z]/);
+  assert.deepEqual(ownedSignals, declaredSignals);
+  assert.match(html, /data-bind="appearance"/);
+  assert.match(html, /data-bind="previewThemeEnabled"/);
+  assert.match(html, /data-bind="resultView"/);
+  assert.match(
+    html,
+    /data-on:click="\$companionVisible = !\$companionVisible"/,
+  );
+  assert.doesNotMatch(
+    host,
+    /toggleCompanion|setCompanionVisible|:companionVisible|#auto-render|schedule-auto-render|program-detail|phase-names|render-statuses|worker-statuses/,
+  );
+  assert.doesNotMatch(exampleController, /setCompanionVisible|companionVisible/);
+  assert.match(
+    html,
+    /data-on:prose-playground-edit__window="\$autoRender && globalThis\.prosePlayground\.schedule\(evt\.detail\.source, evt\.detail\.companion\)"/,
+  );
+  assert.match(host, /dispatch! "prose-playground-edit"/);
+  assert.match(host, /dispatch! program-event program/);
+  assert.match(host, /dispatch![\s\S]+render-state-event[\s\S]+js\/Object\.assign/);
+  assert.match(
+    html,
+    /data-on:prose-playground-program__window="[\s\S]+\$companionVisible = evt\.detail\.companion !== null/,
+  );
+  assert.match(
+    html,
+    /data-on:prose-playground-render-state__window="[\s\S]+\$workerReady = evt\.detail\.workerState === 'ready'/,
+  );
+  assert.match(html, /data-attr:data-appearance="\$appearance"/);
+  assert.match(
+    html,
+    /data-attr:srcdoc="\$htmlResult && globalThis\.prosePlayground\.previewDocument\(\$htmlResult, \$appearance, \$previewThemeEnabled\)"/,
+  );
 });
