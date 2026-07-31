@@ -28,7 +28,6 @@
            :render (.-render options)
            :reset-example (.-resetExample options)
            :schedule-current (.-scheduleCurrent options)
-           :schedule-program (.-scheduleProgram options)
            :select-example (.-selectExample options)}))
        :createRenderController render/create-render-controller
        :currentRenderResponse protocol/current-render-response

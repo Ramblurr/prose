@@ -269,7 +269,7 @@ test("gives every declared signal standard Datastar 1.0.2 ownership", async () =
   );
 });
 
-test("executes Auto toggle and edit transitions against the host actions", async () => {
+test("executes Auto transitions through the current-program-only host action", async () => {
   const html = await text("static/index.html");
   const changeExpression = html.match(
     /id="auto-render"[\s\S]+?data-on:change="([^"]+)"/,
@@ -284,7 +284,6 @@ test("executes Auto toggle and edit transitions against the host actions", async
     render: () => {},
     resetExample: () => {},
     scheduleCurrent: (...args) => calls.push(["scheduleCurrent", args]),
-    scheduleProgram: (...args) => calls.push(["scheduleProgram", args]),
     selectExample: () => {},
   });
   const context = { prosePlayground: actions };
@@ -295,9 +294,11 @@ test("executes Auto toggle and edit transitions against the host actions", async
   changeAuto(context, true);
   editWithAuto(context, true);
   editWithAuto(context, false);
+  context.prosePlayground.schedule("foreign", "payload");
 
   assert.deepEqual(calls, [
     ["cancelScheduled", []],
+    ["scheduleCurrent", []],
     ["scheduleCurrent", []],
     ["scheduleCurrent", []],
   ]);

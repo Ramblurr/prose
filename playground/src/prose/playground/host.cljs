@@ -76,16 +76,13 @@
 
 (defn create-host-actions
   [{:keys [cancel-scheduled preview-document render reset-example schedule-current
-           schedule-program select-example]}]
+           select-example]}]
   #js {:cancelScheduled cancel-scheduled
        :previewDocument preview-document
        :render render
        :resetExample reset-example
-       :schedule (fn
-                   ([]
-                    (schedule-current))
-                   ([source companion]
-                    (schedule-program source companion)))
+       :schedule (fn []
+                   (schedule-current))
        :selectExample select-example})
 
 (defn- dispatch! [event detail]
@@ -302,8 +299,6 @@
                               (.reset example-controller)))
            :schedule-current (fn []
                                (render-current-program! "schedule"))
-           :schedule-program (fn [source companion]
-                               (render-program! "schedule" source companion))
            :select-example (fn [id]
                              (when-let [^js example-controller
                                         (:example-controller @runtime_)]
