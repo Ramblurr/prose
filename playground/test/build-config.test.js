@@ -93,6 +93,8 @@ test("builds separate optimized ClojureScript host and worker targets without in
 test("keeps every hand-authored production module in ClojureScript", async () => {
   const sourceFiles = await readdir(projectFile("src"), { recursive: true });
   const productionJavaScript = sourceFiles.filter((path) => path.endsWith(".js"));
+
+  assert.deepEqual(productionJavaScript, []);
 });
 
 test("keeps the four complete Example programs canonical and ordered", async () => {
