@@ -47,7 +47,7 @@
     $stalePreview = evt.detail.stale;
     $workerStatusDetail = evt.detail.diagnostic ? $diagnosticPhase + ': ' + evt.detail.diagnostic.message : evt.detail.workerState === 'ready' ? 'The render worker is ready.' : 'Starting the isolated render worker.'
   "
-  data-on:prose-playground-edit__window="$autoRender && globalThis.prosePlayground.schedule(evt.detail.source, evt.detail.companion)">
+  data-on:prose-playground-edit__window="$autoRender && globalThis.prosePlayground.schedule()">
   <header class="app-header">
     <div class="brand-lockup">
       <span class="brand-mark" aria-hidden="true">P</span>

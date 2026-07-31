@@ -161,7 +161,7 @@
      :source (.toString (.. source-editor -state -doc))}))
 
 (defn- create-editor
-  [{:keys [current-program label language on-edit parent request-render! shorthand? source]}]
+  [{:keys [label language on-edit parent request-render! shorthand? source]}]
   (let [extensions (concat
                     [(line-numbers)
                      (history)
@@ -175,8 +175,7 @@
                           (fn [^js update]
                             (when (.-docChanged update)
                               (on-edit (.toString (.. update -state -doc)))
-                              (dispatch! "prose-playground-edit"
-                                         (current-program)))))
+                              (dispatch! "prose-playground-edit" nil))))
                      (.of
                       ^js keymap
                       (to-array
@@ -213,8 +212,7 @@
             (create-editors! [^js program]
               (let [source-editor
                     (create-editor
-                     {:current-program #(current-program runtime_)
-                      :label "source-editor-label"
+                     {:label "source-editor-label"
                       :language prose-language/prose-language
                       :on-edit (fn [source]
                                  (when-let [^js example-controller
@@ -226,8 +224,7 @@
                       :shorthand? true})
                     companion-editor
                     (create-editor
-                     {:current-program #(current-program runtime_)
-                      :label "companion-editor-label"
+                     {:label "companion-editor-label"
                       :language prose-language/clojure-language
                       :on-edit (fn [source]
                                  (when-let [^js example-controller

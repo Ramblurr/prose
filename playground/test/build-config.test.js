@@ -252,7 +252,7 @@ test("gives every declared signal standard Datastar 1.0.2 ownership", async () =
   );
   assert.match(
     html,
-    /data-on:prose-playground-edit__window="\$autoRender && globalThis\.prosePlayground\.schedule\(evt\.detail\.source, evt\.detail\.companion\)"/,
+    /data-on:prose-playground-edit__window="\$autoRender && globalThis\.prosePlayground\.schedule\(\)"/,
   );
   assert.match(
     html,
@@ -269,10 +269,13 @@ test("gives every declared signal standard Datastar 1.0.2 ownership", async () =
   );
 });
 
-test("executes both Auto transitions against the host actions", async () => {
+test("executes Auto toggle and edit transitions against the host actions", async () => {
   const html = await text("static/index.html");
-  const expression = html.match(
+  const changeExpression = html.match(
     /id="auto-render"[\s\S]+?data-on:change="([^"]+)"/,
+  )?.[1];
+  const editExpression = html.match(
+    /data-on:prose-playground-edit__window="([^"]+)"/,
   )?.[1];
   const calls = [];
   const actions = createHostActions({
@@ -285,13 +288,17 @@ test("executes both Auto transitions against the host actions", async () => {
     selectExample: () => {},
   });
   const context = { prosePlayground: actions };
-  const changeAuto = new Function("globalThis", "$autoRender", expression);
+  const changeAuto = new Function("globalThis", "$autoRender", changeExpression);
+  const editWithAuto = new Function("globalThis", "$autoRender", editExpression);
 
   changeAuto(context, false);
   changeAuto(context, true);
+  editWithAuto(context, true);
+  editWithAuto(context, false);
 
   assert.deepEqual(calls, [
     ["cancelScheduled", []],
+    ["scheduleCurrent", []],
     ["scheduleCurrent", []],
   ]);
 });
