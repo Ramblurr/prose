@@ -2,19 +2,46 @@
 
 The Playground is an isolated static application. Its ClojureScript, npm, and vendored browser dependencies do not enter the Prose library dependency graph.
 
-Install the pinned JavaScript dependencies without running package scripts:
+## Build the deployment artifact
+
+Install the pinned JavaScript dependencies once, without running package scripts:
 
 ```sh
 pnpm --dir playground install --frozen-lockfile --ignore-scripts
 ```
 
-Datastar v1.0.2 is vendored as its upstream browser bundle under `vendor/`; see `vendor/README.md` for provenance, license, and the machine-checked digest. The build copies both the bundle and license into the relocatable artifact without fetching them.
-
-From the repository root, build and serve the artifact:
+From the repository root, create a clean production artifact:
 
 ```sh
 just playground-build
+```
+
+The command compiles the optimized browser host and Render worker, copies every runtime asset, and verifies that the artifact contains only local, relative references. It neither installs dependencies nor fetches runtime assets.
+
+The complete deployable site is `playground/dist/`. You can serve it from a domain root or any URL prefix.
+
+Datastar v1.0.2 is vendored under `vendor/`; see `vendor/README.md` for its provenance, license, and machine-checked digest. The artifact includes the bundle and all third-party notices.
+
+## Test locally
+
+```sh
 just playground-serve
 ```
 
-The server listens on <http://localhost:8000>. The build does not install dependencies. Run `just playground-check` to compile and execute the deterministic public-seam and Render-worker tests against a clean production build. The default source is copied verbatim from `examples/01-text-and-code.prose`.
+Open <http://localhost:8000>. To rebuild the artifact and run the deterministic public-seam and Render-worker tests, run:
+
+```sh
+just playground-check
+```
+
+## Deploy to a static host
+
+Copy the contents of `playground/dist/` to the directory served by your static host:
+
+```sh
+rsync -av --delete playground/dist/ user@example.org:/srv/www/playground/
+```
+
+Replace the destination with your host and document-root path. The trailing slashes copy the artifact's contents rather than the `dist` directory itself. `--delete` removes files at the destination that are absent from the new artifact, so dedicate that destination directory to the Playground.
+
+The host needs only to serve these files over HTTP; the Playground requires no server application or runtime network fetches.
