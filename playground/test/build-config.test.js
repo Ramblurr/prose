@@ -184,3 +184,29 @@ test("uses native responsive interface controls with their approved ownership", 
   assert.ok(html.indexOf("source-pane") < html.indexOf("result-pane"));
   assert.doesNotMatch(html, /role="tab(?:list)?"|tabindex=/);
 });
+
+test("uses standard Datastar custom-event ingress for every declared signal", async () => {
+  const host = await text("src/host.js");
+  const html = await text("static/index.html");
+  const signalDeclaration = html.match(/data-signals="([^"]+)"/)?.[1] ?? "";
+  const eventBinding = html.match(
+    /data-on-prose-playground-state__window="([^"]+)"/s,
+  )?.[1] ?? "";
+  const declaredSignals = [...signalDeclaration.matchAll(/\b([A-Za-z]\w*):/g)]
+    .map(([, signal]) => signal)
+    .sort();
+  const patchedSignals = [...eventBinding.matchAll(
+    /\$(\w+)\s*=\s*evt\.detail\.\1\s*\?\?\s*\$\1/g,
+  )].map(([, signal]) => signal).sort();
+
+  assert.match(host, /import "@starfederation\/datastar\/bundles\/datastar";/);
+  assert.match(
+    host,
+    /window\.dispatchEvent\(new CustomEvent\(stateEvent, \{ detail \}\)\)/,
+  );
+  assert.doesNotMatch(
+    host,
+    /PluginType\s*\.\s*Watcher|playgroundStateAdapter|signals\s*\.\s*merge\s*\(/,
+  );
+  assert.deepEqual(patchedSignals, declaredSignals);
+});
