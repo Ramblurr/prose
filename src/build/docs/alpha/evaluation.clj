@@ -58,6 +58,4 @@
     (document "README.md.prose" {:git-coord {}}))
 
 
-  (spit "README-test.MD" doc)
-
-  (slurp-doc "readme/example-tags.clj"))
+  (spit "README-test.MD" doc))

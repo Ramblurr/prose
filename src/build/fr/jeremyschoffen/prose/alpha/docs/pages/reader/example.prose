@@ -1,3 +1,0 @@
-◊(def a 3)
-
-Some ◊em{example} text: ◊|a◊"."

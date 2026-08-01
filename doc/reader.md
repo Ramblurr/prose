@@ -72,8 +72,8 @@ other document code.
 Every non-text form carries a
 `:fr.jeremyschoffen.prose.alpha.reader.core/parse-region` metadata map. Regions
 use half-open `:start-index` and `:end-index` values plus one-based line and
-column positions. `form->text` uses that metadata to return the exact source
-slice. Strings return themselves.
+column positions. `fr.jeremyschoffen.prose.alpha.reader.core/form->text`
+uses that metadata to return the exact source slice. Strings return themselves.
 
 Malformed commands throw `ExceptionInfo` with Prose-owned data. The data
 includes `:type`, `:source`, `:text`, indexes, line and column positions, and the

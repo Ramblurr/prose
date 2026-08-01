@@ -113,7 +113,7 @@ Let's read it:
 ```clojure
 
 (def document
-  (-> "fr/jeremyschoffen/prose/alpha/docs/pages/readme/example-doc.html.prose"
+  (-> "prose/alpha/readme/example-doc.html.prose"
     io/resource
     slurp
     reader/read-from-string))
@@ -138,7 +138,7 @@ Evaluate it one top-level item at a time:
 
 (def evaluation
   (doc/evaluate-document
-    "fr/jeremyschoffen/prose/alpha/docs/pages/readme/example-doc.html.prose"))
+    "prose/alpha/readme/example-doc.html.prose"))
 
 (display evaluation)
 
@@ -205,7 +205,7 @@ There are some helpers to make this process easier:
     slurp))
 
 (def evaluate (doc/make-evaluator {:slurp-doc slurp-doc}))
-(-> "fr/jeremyschoffen/prose/alpha/docs/pages/readme/example-doc.html.prose"
+(-> "prose/alpha/readme/example-doc.html.prose"
   evaluate
   :document
   html-compiler/compile!)
