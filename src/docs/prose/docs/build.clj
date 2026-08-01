@@ -4,7 +4,7 @@
    [clojure.string :as string]
    [prose.docs.core :as docs]))
 
-(def lib-name 'io.github.jerems/prose)
+(def lib-name 'io.github.ramblurr/prose)
 
 (defn- git-output! [& args]
   (let [{:keys [exit out] :as result} (apply shell/sh "git" args)]
@@ -13,9 +13,9 @@
       (throw (ex-info "Git command failed" result)))))
 
 (defn latest-git-coord []
-  (let [tag (git-output! "describe" "--tags" "--abbrev=0" "HEAD")
-        sha (git-output! "rev-parse" "--short=10" (str tag "^{commit}"))]
-    {lib-name {:git/tag tag
+  (let [;;tag (git-output! "describe" "--tags" "--abbrev=0" "HEAD")
+        sha (git-output! "rev-parse" "HEAD" #_(str tag "^{commit}"))]
+    {lib-name {#_#_:git/tag tag
                :git/sha sha}}))
 
 (defn- rendered-documents []

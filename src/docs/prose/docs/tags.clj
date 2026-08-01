@@ -18,9 +18,9 @@
   (let [[lib-name coordinate] (-> (lib/get-input) :git-coord first)]
     (md/code-block
      {:content-type "clojure"}
-     (format "{%s {:git/tag %s, :git/sha %s}}"
+     (format "{%s {:git/sha %s}}" #_"{%s {:git/tag %s, :git/sha %s}}"
              lib-name
-             (pr-str (:git/tag coordinate))
+             #_(pr-str (:git/tag coordinate))
              (pr-str (:git/sha coordinate))))))
 
 
