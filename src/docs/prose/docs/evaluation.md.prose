@@ -1,6 +1,6 @@
 ◊(require
    '[clojure.pprint :as pp]
-   '[docs.alpha.tags :as t]
+   '[prose.docs.tags :as t]
    '[fr.jeremyschoffen.prose.alpha.document.lib :as lib]
    '[fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]
    '[fr.jeremyschoffen.prose.alpha.eval.sci :as eval-sci]
@@ -38,7 +38,7 @@ For instance the document:
 
 is read as:
 ◊t/clj{
-  ◊(-> "prose/alpha/readme/example-doc.html.prose"
+  ◊(-> "prose/docs/readme/example-doc.html.prose"
      lib/slurp-doc
      reader/read-from-string
      pp/pprint
@@ -48,7 +48,7 @@ is read as:
 Using eval on this vector is problematic:
 ◊t/code {
   (try
-    (-> "prose/alpha/readme/example-doc.html.prose"
+    (-> "prose/docs/readme/example-doc.html.prose"
      lib/slurp-doc
      reader/read-from-string
      eval)

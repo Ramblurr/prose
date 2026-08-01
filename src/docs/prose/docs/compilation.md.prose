@@ -1,6 +1,6 @@
 ◊(require
    '[clojure.pprint :as pp]
-   '[docs.alpha.tags :as t]
+   '[prose.docs.tags :as t]
    '[fr.jeremyschoffen.prose.alpha.compilation.core :as compilation]
    '[fr.jeremyschoffen.prose.alpha.document.lib :as lib]
    '[fr.jeremyschoffen.prose.alpha.out.html.tags :as html]

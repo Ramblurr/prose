@@ -1,4 +1,4 @@
-(ns docs.alpha.tags
+(ns prose.docs.tags
   (:require
    [clojure.java.io :as io]
    [clojure.repl]

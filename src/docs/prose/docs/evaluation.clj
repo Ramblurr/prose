@@ -1,4 +1,4 @@
-(ns docs.alpha.evaluation
+(ns prose.docs.evaluation
   (:require
    [clojure.java.io :as io]
    [fr.jeremyschoffen.prose.alpha.document.clojure :as doc]
@@ -17,7 +17,7 @@
                         e))))))
 
 
-(def docs-root "prose/alpha")
+(def docs-root "prose/docs")
 
 
 (defn slurp-doc* [path]
@@ -47,13 +47,13 @@
 
 
 (comment
-  (slurp-doc "README.md.prose")
-  (document "README.md.prose")
+  (slurp-doc "prose/docs/README.md.prose")
+  (document "prose/docs/README.md.prose")
 
-  (clojure.java.io/resource "docs/alpha/readme/example-1.prose")
+  (clojure.java.io/resource "prose/docs/readme/example-1.prose")
   *e
   (def doc
-    (document "README.md.prose" {:git-coord {}}))
+    (document "prose/docs/README.md.prose" {:git-coord {}}))
 
 
   (spit "README-test.MD" doc))

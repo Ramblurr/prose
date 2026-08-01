@@ -57,7 +57,7 @@ Using eval on this vector is problematic:
 ```clojure
 
   (try
-    (-> "prose/alpha/readme/example-doc.html.prose"
+    (-> "prose/docs/readme/example-doc.html.prose"
      lib/slurp-doc
      reader/read-from-string
      eval)

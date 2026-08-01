@@ -1,4 +1,4 @@
-◊(do (require '[docs.alpha.tags :as t]) "")# Prose reader
+◊(do (require '[prose.docs.tags :as t]) "")# Prose reader
 
 The public reader turns a source string into ordinary Clojure data. It does not
 evaluate the result. Call

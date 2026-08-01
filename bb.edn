@@ -22,11 +22,11 @@
 
          docs
          {:doc "Generate the README and design documentation"
-          :task (clojure "-X:dev" "prose.build.docs/generate!")}
+          :task (clojure "-X:dev" "prose.docs.build/generate!")}
 
          docs:check
          {:doc "Check that generated documentation is current"
-          :task (clojure "-X:dev" "prose.build.docs/check!")}
+          :task (clojure "-X:dev" "prose.docs.build/check!")}
 
          build:jar
          {:doc "Build the project JAR"

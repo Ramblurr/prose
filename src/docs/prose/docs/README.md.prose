@@ -1,4 +1,4 @@
-◊(require '[docs.alpha.tags :refer :all])
+◊(require '[prose.docs.tags :refer :all])
 # Prose
 
 Alternate syntax for Clojure, similar to what ◊|pollen brings to ◊|racket◊"."
@@ -63,7 +63,7 @@ This is the document we are using for our example:
 Let's read it:
 ◊code{
 (def document
-  (-> "prose/alpha/readme/example-doc.html.prose"
+  (-> "prose/docs/readme/example-doc.html.prose"
     io/resource
     slurp
     reader/read-from-string))
@@ -75,7 +75,7 @@ Evaluate it one top-level item at a time:
 ◊code{
 (def evaluation
   (doc/evaluate-document
-    "prose/alpha/readme/example-doc.html.prose"))
+    "prose/docs/readme/example-doc.html.prose"))
 
 (display evaluation)
 }
@@ -96,7 +96,7 @@ There are some helpers to make this process easier:
     slurp))
 
 (def evaluate (doc/make-evaluator {:slurp-doc slurp-doc}))
-(-> "prose/alpha/readme/example-doc.html.prose"
+(-> "prose/docs/readme/example-doc.html.prose"
   evaluate
   :document
   html-compiler/compile!)

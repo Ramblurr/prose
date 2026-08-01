@@ -1,8 +1,8 @@
-(ns prose.build.docs
+(ns prose.docs.build
   (:require
    [clojure.java.shell :as shell]
    [clojure.string :as string]
-   [docs.alpha.core :as docs]))
+   [prose.docs.core :as docs]))
 
 (def lib-name 'io.github.jerems/prose)
 
