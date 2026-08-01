@@ -89,6 +89,9 @@
         # regenerates ./deps-lock.json: `nix run .#locker`
         locker = pkgs: (package pkgs).locker;
       };
+      checks = pkgs: {
+        emacs = import ./editors/emacs/check.nix { inherit pkgs; };
+      };
       devShell =
         pkgs:
         pkgs.devshell.mkShell {

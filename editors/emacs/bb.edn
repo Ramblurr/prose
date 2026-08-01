@@ -1,0 +1,36 @@
+{:paths []
+ :tasks {:requires ([babashka.fs :as fs]
+                    [babashka.tasks :refer [run shell]])
+         :init (def batch-command
+                 (str (or (System/getenv "EMACS") "emacs")
+                      " -Q --batch "
+                      (or (System/getenv "LOAD_PATH") "")
+                      " -L ."))
+
+         clean
+         {:doc "Remove compiled Emacs Lisp files"
+          :task (doseq [path (cons "clojure-prose-mode.elc"
+                                   (fs/glob "test" "*.elc"))]
+                  (fs/delete-if-exists path))}
+
+         compile
+         {:doc "Byte-compile the package and tests"
+          :task (shell batch-command
+                       "--eval"
+                       "(setq byte-compile-error-on-warn t byte-compile-warnings '(not obsolete))"
+                       "-f" "batch-byte-compile"
+                       "clojure-prose-mode.el"
+                       "test/clojure-prose-mode-test.el")}
+
+         test
+         {:doc "Run the ERT test suite"
+          :task (shell batch-command
+                       "-l" "test/clojure-prose-mode-test.el"
+                       "-f" "ert-run-tests-batch-and-exit")}
+
+         qa
+         {:doc "Clean, compile, and test the package"
+          :task (do
+                  (run 'clean)
+                  (run 'compile)
+                  (run 'test))}}}
