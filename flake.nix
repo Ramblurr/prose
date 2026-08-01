@@ -29,14 +29,13 @@
           name = "prose";
           version = "0.0.0";
           src = ./.;
-          buildCommand = "clojure -Srepro -T:package jar";
+          buildCommand = "clojure -Srepro -T:build jar";
           prepAliases = [
-            "package"
-            "clj"
-            "cljs"
+            "build"
+            "dev"
             "test"
           ];
-          prefetchAliases = [ "clj:cljs:test" ];
+          prefetchAliases = [ "dev:test" ];
           extraPrepInputs = [
             pkgs.babashka
             pkgs.git
@@ -46,11 +45,11 @@
             export PATH="${clojure}/bin:${jdk}/bin:$PATH"
             unset CLJ_CACHE CLJ_CONFIG XDG_CACHE_HOME XDG_CONFIG_HOME XDG_DATA_HOME
 
-            clojure -Srepro -X:deps prep :aliases '[:package :clj :cljs :test]'
-            clojure -Srepro -P -M:clj:cljs:test
+            clojure -Srepro -X:deps prep :aliases '[:build :dev :test]'
+            clojure -Srepro -P -M:dev:test
             (cd playground && clojure -Srepro -P -M:test)
             bb -Sdeps '{:deps {io.github.jerems/prose {:local/root "."}}}' -e nil
-            clojure -Srepro -T:package jar
+            clojure -Srepro -T:build jar
           '';
           checkCommand = ''
             bb test:clj

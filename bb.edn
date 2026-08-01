@@ -7,7 +7,7 @@
          {:override-builtin true
           :doc "Start the project nREPL server"
           :task (apply clojure
-                       "-M:clj:cljs:dev:nrepl:piggie:test"
+                       "-M:dev:test"
                        "-m" "nrepl.cmdline"
                        "--middleware" "[cider.piggieback/wrap-cljs-repl]"
                        *command-line-args*)}
@@ -20,24 +20,29 @@
                        "clojure" "-M:repl"
                        *command-line-args*)}
 
-         repl:build
-         {:doc "Start the build nREPL server"
-          :task (apply clojure
-                       "-M:clj:nrepl:build"
-                       "-m" "nrepl.cmdline"
-                       *command-line-args*)}
+         docs
+         {:doc "Generate the README and design documentation"
+          :task (clojure "-X:dev" "prose.build.docs/generate!")}
+
+         docs:check
+         {:doc "Check that generated documentation is current"
+          :task (clojure "-X:dev" "prose.build.docs/check!")}
+
+         build:jar
+         {:doc "Build the project JAR"
+          :task (clojure "-T:build" "jar")}
 
          test:clj
          {:doc "Run the Clojure tests"
           :task (apply clojure
-                       "-M:clj:cljs:test"
+                       "-M:dev:test"
                        "-m" "kaocha.runner" "unit-clj"
                        *command-line-args*)}
 
          test:cljs
          {:doc "Run the ClojureScript tests"
           :task (apply clojure
-                       "-M:clj:cljs:test"
+                       "-M:dev:test"
                        "-m" "kaocha.runner" "unit-cljs"
                        *command-line-args*)}
 

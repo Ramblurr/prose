@@ -1,11 +1,11 @@
 (ns docs.alpha.tags
   (:require
-    [clojure.repl]
-    [clojure.string :as string]
-    [fr.jeremyschoffen.java.nio.alpha.file :as fs]
-    [fr.jeremyschoffen.prose.alpha.document.lib :as lib]
-    [fr.jeremyschoffen.prose.alpha.out.markdown.tags :as md]
-    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
+   [clojure.java.io :as io]
+   [clojure.repl]
+   [clojure.string :as string]
+   [fr.jeremyschoffen.prose.alpha.document.lib :as lib]
+   [fr.jeremyschoffen.prose.alpha.out.markdown.tags :as md]
+   [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
 
 
 ;; -----------------------------------------------------------------------------
@@ -13,6 +13,15 @@
 ;; -----------------------------------------------------------------------------
 (defn make-link [href text]
   (lib/xml-tag :a {:href href} text))
+
+(defn git-coordinates []
+  (let [[lib-name coordinate] (-> (lib/get-input) :git-coord first)]
+    (md/code-block
+     {:content-type "clojure"}
+     (format "{%s {:git/tag %s, :git/sha %s}}"
+             lib-name
+             (pr-str (:git/tag coordinate))
+             (pr-str (:git/sha coordinate))))))
 
 
 (def racket (make-link "https://racket-lang.org/" "Racket"))
@@ -27,7 +36,7 @@
 (defn make-path [path]
   (-> (lib/get-input)
       :build/docs-root
-      (fs/path path)
+      (io/file path)
       str))
 
 (defn reader-sample [path]

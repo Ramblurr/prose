@@ -1,10 +1,8 @@
 (ns docs.alpha.evaluation
   (:require
-    [clojure.java.io :as io]
-    [fr.jeremyschoffen.java.nio.alpha.file :as fs]
-
-    [fr.jeremyschoffen.prose.alpha.document.clojure :as doc]
-    [fr.jeremyschoffen.prose.alpha.out.markdown.compiler :as cplr]))
+   [clojure.java.io :as io]
+   [fr.jeremyschoffen.prose.alpha.document.clojure :as doc]
+   [fr.jeremyschoffen.prose.alpha.out.markdown.compiler :as cplr]))
 
 
 
@@ -19,7 +17,7 @@
                         e))))))
 
 
-(def docs-root (fs/path"prose" "alpha"))
+(def docs-root "prose/alpha")
 
 
 (defn slurp-doc* [path]

@@ -1,17 +1,14 @@
-◊(require '[docs.alpha.tags :as t])
-
-
-# Prose reader
+◊(do (require '[docs.alpha.tags :as t]) "")# Prose reader
 
 The public reader turns a source string into ordinary Clojure data. It does not
 evaluate the result. Call
-◊t/sym[fr.jeremyschoffen.prose.alpha.reader.core/read-from-string] to read a
-document and ◊t/sym[fr.jeremyschoffen.prose.alpha.reader.core/form->text] to
-recover source text from a returned form.
+◊t/sym[fr.jeremyschoffen.prose.alpha.reader.core/read-from-string] to read a document
+and ◊t/sym[fr.jeremyschoffen.prose.alpha.reader.core/form->text] to recover source
+text from a returned form.
 
 ## Syntax
 
-Text stays text until the lozenge (◊"◊") introduces a command.
+Text stays text until the lozenge (`◊"◊"`) introduces a command.
 
 | Source | Behavior |
 | --- | --- |

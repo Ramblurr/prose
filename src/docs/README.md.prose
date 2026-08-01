@@ -1,11 +1,10 @@
-◊(require '[docs.alpha.tags :refer :all]
-          '[fr.jeremyschoffen.mbt2.prose.tags :as t])
+◊(require '[docs.alpha.tags :refer :all])
 # Prose
 
 Alternate syntax for Clojure, similar to what ◊|pollen brings to ◊|racket◊"."
 
 ## Installation
-◊t/git-coordinates
+◊git-coordinates
 
 ## Usage
 The main idea is to have programmable documents in Clojure. To do so, Prose

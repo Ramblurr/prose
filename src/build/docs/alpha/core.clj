@@ -1,44 +1,18 @@
 (ns docs.alpha.core
   (:require
-    [clojure.string :as string]
-    [fr.jeremyschoffen.java.nio.alpha.file :as fs]
-    [docs.alpha.evaluation :as ev]))
+   [docs.alpha.evaluation :as ev]))
 
+(def design-docs
+  {"prose/alpha/reader.md.prose"      "doc/reader.md"
+   "prose/alpha/evaluation.md.prose"  "doc/evaluation.md"
+   "prose/alpha/compilation.md.prose" "doc/compilation.md"})
 
-(defn generate-readme! [input-map]
-  (spit "README.md" (ev/document "README.md.prose" input-map)))
+(defn documents [input-map]
+  (into {"README.md" (ev/document "README.md.prose" input-map)}
+        (map (fn [[source-path target-path]]
+               [target-path (ev/document source-path)]))
+        design-docs))
 
-
-(defn strip-ext [file-name]
-  (string/replace-first file-name ".prose" ""))
-
-
-(defn make-dest [path]
-  (->> path
-       strip-ext
-       fs/path
-       fs/file-name
-       (fs/path "doc")))
-
-(defn compile-doc!
-  [path]
-  (spit (make-dest path) (ev/document path)))
-
-
-(def docs
-  ["prose/alpha/reader.md.prose"
-   "prose/alpha/evaluation.md.prose"
-   "prose/alpha/compilation.md.prose"])
-
-(defn generate-design-docs! []
-  (doseq [d docs]
-    (compile-doc! d)))
-
-
-(comment
-  (-> *e ex-cause ex-data)
-  (generate-design-docs!)
-  (ev/document "prose/alpha/compilation.md.prose")
-
-  (ev/document "README.md.prose" {:git-coord {}}))
-
+(defn generate! [input-map]
+  (doseq [[path content] (documents input-map)]
+    (spit path content)))

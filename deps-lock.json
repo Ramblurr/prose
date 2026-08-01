@@ -25,6 +25,12 @@
     "borkdude/sci.impl.reflector/0.0.1/sci.impl.reflector-0.0.1.pom": {
       "sha256": "25ecce3f2b1ab2d2853fa4925737bff19bf06276ebfeebb93e11ef75373b79af"
     },
+    "cider/piggieback/0.7.0/piggieback-0.7.0.jar": {
+      "sha256": "d22fe5e93084a868d40fda03c3c17c38ffa9f0188d3844e6e3359e149895f952"
+    },
+    "cider/piggieback/0.7.0/piggieback-0.7.0.pom": {
+      "sha256": "a6c2245d2806b3db6bc4262860746bb92f098295c9c6f0872f333bb90c24ddb6"
+    },
     "com/cognitect/aws/api/0.8.824/api-0.8.824.jar": {
       "sha256": "4419ad593f5dd1852100aa4fb34afe1ff54b1f24251886666ba30db5cc4169ec"
     },
@@ -339,6 +345,12 @@
     },
     "net/java/jvnet-parent/5/jvnet-parent-5.pom": {
       "sha256": "1af699f8d9ddab67f9a0d202fbd7915eb0362a5a6dfd5ffc54cafa3465c9cb0a"
+    },
+    "nrepl/nrepl/1.7.0/nrepl-1.7.0.jar": {
+      "sha256": "d07390277190e0a974e1497fd4485005a4964f9f556a50bd530509f48ba65c1b"
+    },
+    "nrepl/nrepl/1.7.0/nrepl-1.7.0.pom": {
+      "sha256": "5287e692855547ee2d3a4cf346fa50bcf763a0bf02a0dadabc1efab88dda1e88"
     },
     "org/apache/apache/21/apache-21.pom": {
       "sha256": "af10c108da014f17cafac7b52b2b4b5a3a1c18265fa2af97a325d9143537b380"
