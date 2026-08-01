@@ -3,17 +3,25 @@
 
 Alternate syntax for Clojure, similar to what [Pollen](https://github.com/mbutterick/pollen) brings to [Racket](https://racket-lang.org/).
 
+Try it now in your browser at https://ramblurr.github.io/prose
+
+- Supports: Clojure, Clojurescript, Babashka
+- Project Status: [Experimental](https://docs.outskirtslabs.com/open-source-vital-signs#experimental)
+
 ## Installation
 ```clojure
-{io.github.ramblurr/prose {:git/sha "cc930aba15d7987e290b8f500843f23939a3b2f0"}}
+{io.github.ramblurr/prose {:git/sha "04b6029cb76ecb80300df24957814ffe916586a3"}}
 ```
+
+Then, optionally (but recommended), install an editor plugin/package for it.
+See [editors/README.md](editors/README.md).
 
 ## Usage
 The main idea is to have programmable documents in Clojure. To do so, Prose
-flips the relationship between plain text and code. In a clojure file, text is
+flips the relationship between plain text and code. In a Clojure file, text is
 assumed to be code except in special cases like strings and comments.
-In prose, text is assumed to be just plain text except in special cases i.e.
-clojure code.
+In Prose, text is assumed to be just plain text except in special cases i.e.
+Clojure code.
 
 ### Syntax
 Prose provides a reader similar to what we can find in [Pollen](https://github.com/mbutterick/pollen). Text is
@@ -55,7 +63,7 @@ reads as:
 ["There is a tag function syntax looking like:\n" (div {:class "grid"} " some content") "\n" (div " some " (em "content")) "\n\nor even:\n" (str "text")]
 ```
 
-- clojure code argument in brackets
+- Clojure code argument in brackets
 - text argument in braces
 
 #### Escaped / verbatim text:
@@ -241,47 +249,6 @@ Without it, evaluation starts in a hidden temporary namespace. Read and
 evaluation failures retain completed `:forms` and `:document` values in their
 exception data; evaluation failures also identify the failing form.
 
-
-### Namespace-aware staged example
-
-A document namespace and alias become available to the next top-level item,
-including its nested tags:
-
-```text
-◊(ns prose.example
-  (:require [fr.jeremyschoffen.prose.alpha.out.html.tags :as h]))◊h/ul[{:data-list ::list
-         :data-tag ::h/tag}]{◊h/li{One}◊h/li{One plus two is ◊(+ 1 2)}}
-```
-
-The staged evaluator returns the forms it read and their evaluated values:
-
-```clojure
-{:forms
- [(ns prose.example
-    (:require
-      [fr.jeremyschoffen.prose.alpha.out.html.tags :as h]))
-  (h/ul
-    {:data-list :prose.example/list
-     :data-tag :fr.jeremyschoffen.prose.alpha.out.html.tags/tag}
-    (h/li "One")
-    (h/li "One plus two is " (+ 1 2)))]
- :document
- [nil
-  {:tag :ul
-   :attrs {:data-list :prose.example/list
-           :data-tag :fr.jeremyschoffen.prose.alpha.out.html.tags/tag}
-   :content [{:tag :li, :content ["One"], :type :tag}
-             {:tag :li, :content ["One plus two is " 3], :type :tag}]
-   :type :tag}]}
-```
-
-Compiling only `:document` yields:
-
-```html
-<ul data-list=":prose.example/list" data-tag=":fr.jeremyschoffen.prose.alpha.out.html.tags/tag"><li>One</li><li>One plus two is 3</li></ul>
-```
-
-
 ## The ◊ (lozenge) character
 One of the first question that came to mind when I discovered [Pollen](https://github.com/mbutterick/pollen) was:
 why this `◊` character? I expect the same question will arise for this
@@ -317,6 +284,16 @@ That should be the extent of our troubles with this character.
 For reference here is the answer in the case of pollen from
 [its documentation](https://docs.racket-lang.org/pollen/pollen-command-syntax.html#%28part._the-lozenge%29).
 
+### But how do I type the ◊ (lozenge) character?
+Pollen's manual provides [a bunch of specific helpers](https://docs.racket-lang.org/pollen/pollen-command-syntax.html#%28part._.Lozenge_helpers%29) for typing the lozenge.
+
+I simply suggest configuring your editor to type the lozenge when you type a
+character such as `@`, and to insert a literal `@` when you type `@@`. This is
+relatively straightforward in most editors.
+
+All Prose editor plugins/packages offer some sort of lozenge insert functionality out of the box.
+
+See [editors/README.md](editors/README.md).
 
 ## Clojure vs sci evaluation
 Currently Prose provides 2 apis to evaluate code. The first one uses Clojure's
@@ -339,7 +316,7 @@ Cons:
 
 ### Sci
 Pros:
-- Runs in clojure and clojurescript
+- Runs in clojure, clojurescript, and babashka
 - Bringing it's own reifed environment, [Sci](https://github.com/borkdude/sci) evaluations can easily happen in
   several threads.
 - Allows us to sandbox what's accessible to the code / document being evaluated.
@@ -357,8 +334,7 @@ documents through
 `fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator`; Babashka 1.12.218
 is the tested host. Prose keeps its configured inner SCI context and restores
 the caller's current SCI namespace after success, failure, and recursive
-requirements. The trusted JVM adapter remains separate and retains runtime
-classpath access. This lifecycle is synchronous and makes no concurrency
+requirements. This lifecycle is synchronous and makes no concurrency
 guarantee for one mutable SCI context.
 
 
@@ -369,6 +345,7 @@ a big source of inspiration where document compilation is concerned.
 
 ## License
 
-Copyright © 2020 Jeremy Schoffen.
+Copyright © 2020 Jeremy Schoffen.  
+Copyright © 2026 Casey Link.
 
 Distributed under the Eclipse Public License v 2.0.
