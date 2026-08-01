@@ -312,3 +312,7 @@ interpreted by Sci. Functions that a document uses and that come from
 the environment (the one created with sci.core/init) are Clojure functions
 and I believe run directly as Clojure code.
 
+
+> The document has been read and evaluated. The final step is to turn that data
+> into finished output. See [Compiling documents](compilation.md).
+

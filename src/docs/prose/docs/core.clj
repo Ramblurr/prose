@@ -3,7 +3,8 @@
    [prose.docs.evaluation :as ev]))
 
 (def design-docs
-  {"prose/docs/reader.md.prose"      "doc/reader.md"
+  {"prose/docs/index.md.prose"       "doc/README.md"
+   "prose/docs/reader.md.prose"      "doc/reader.md"
    "prose/docs/evaluation.md.prose"  "doc/evaluation.md"
    "prose/docs/compilation.md.prose" "doc/compilation.md"})
 

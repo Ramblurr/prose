@@ -1,100 +1,352 @@
-# Prose reader
 
-The public reader turns a source string into ordinary Clojure data. It does not
-evaluate the result. Call
-`fr.jeremyschoffen.prose.alpha.reader.core/read-from-string` to read a document
-and `fr.jeremyschoffen.prose.alpha.reader.core/form->text` to recover source
-text from a returned form.
 
-## Syntax
 
-Text stays text until the lozenge (`◊`) introduces a command.
+# Prose's reader
 
-| Source | Behavior |
-| --- | --- |
-| `◊"text"` | Returns verbatim text. A backslash escapes the next character. |
-| `◊|qualified/symbol` | Inserts a simple or namespace-qualified Clojure symbol. |
-| `◊(form)` | Reads one embedded Clojure form. |
-| `◊tag[args]{text}` | Reads a named command as an ordinary function-call form. |
-| `◊◊tag[args]{text}` | Returns grouped data as `([tag] [args] ["text"])`; arguments are not spliced into a call. |
+The goal of Prose's reader is to translate a document that mixes prose and
+Clojure into ordinary Clojure data. Text remains text, while commands introduced
+by the lozenge (`◊`) become symbols, lists, and collections. The result can be
+inspected like any other Clojure value or consumed by tools that work with
+ordinary Clojure forms.
 
-Named commands accept simple or qualified names. Square arguments contain
-Clojure data; curly arguments contain text. Either argument type may repeat,
-and the reader preserves their order. Whitespace may separate the command name
-and its arguments. Commands may nest in square arguments, curly arguments, and
-parenthesized Clojure forms.
+The reader only reads. It never evaluates a form, loads a namespace, or performs
+a document's side effects. Most library users need two functions from
+`fr.jeremyschoffen.prose.alpha.reader.core`:
 
-Delimited arguments balance nested parentheses, brackets, or braces. Clojure
-strings protect delimiters, lozenges, and backslash escapes until the closing
-quote. Text and multiline whitespace otherwise pass through unchanged.
+- `fr.jeremyschoffen.prose.alpha.reader.core/read-from-string` reads a complete source string.
+- `fr.jeremyschoffen.prose.alpha.reader.core/form->text` maps a returned form back to its original source.
 
-## Reader output
+
+## Reading a document
+
+Require the public reader namespace:
 
 ```clojure
+
 (require '[fr.jeremyschoffen.prose.alpha.reader.core :as reader])
 
-(reader/read-from-string "Hello, ◊strong{world}!")
-;; => ["Hello, " (strong "world") "!"]
 ```
 
-The result contains ordinary strings, symbols, collections, and lists. The
-reader neither chooses an evaluator nor creates an evaluator-specific AST.
+Consider an `example.prose` document containing:
 
-The optional `:reader-options` map replaces the safe Edamame defaults while
-reading embedded Clojure. Read-eval remains disabled by default.
-See [Edamame's documentation](https://github.com/borkdude/edamame) for the
-available reader options.
+```prose
+◊(def a 3)
 
-```clojure
-(reader/read-from-string
-  "◊(::alias/value)"
-  {:reader-options {:auto-resolve {'alias 'example.ns}}})
-;; => [(:example.ns/value)]
+Some ◊em{example} text: ◊|a◊"."
 ```
 
-`:initial-ns` assigns the current namespace used by auto-resolved local
-keywords. It overrides `:current` in `:reader-options` while preserving alias
-mappings. This is still pure reading: it does not execute an `ns` form or any
-other document code.
+Read it with:
 
 ```clojure
+
+(def source (slurp "example.prose"))
+(reader/read-from-string source)
+
+```
+
+The result is a vector of ordinary Clojure values:
+
+```clojure
+[(def a 3) "\n\nSome " (em "example") " text: " a "."]
+
+```
+
+Notice that reading has not defined `a` or called `em`. The `(def a 3)` form,
+the `(em "example")` form, and the symbol `a` are data. The surrounding prose
+is preserved as strings, including its whitespace.
+
+
+## The command language
+
+In a Prose document, text is copied exactly as written until a `◊` (lozenge)
+starts a command. Parentheses, brackets, braces, and other punctuation need no
+escaping. The character after `◊` determines which kind of command follows.
+
+
+### Clojure forms and symbols
+
+`◊(form)` reads one parenthesized Clojure form. Prose preserves nested
+collections and Clojure strings, so an expression such as
+`◊(vector [1 {:x (inc 1)}])` becomes the corresponding Clojure list.
+
+`◊|name` reads a simple or namespace-qualified symbol without adding a
+function call. This syntax has no closing delimiter, so Prose keeps reading for
+as long as the characters can belong to a Clojure symbol. A period can be part
+of a symbol: `◊|a.` would produce the symbol `a.`.
+
+In the first example, we instead want the symbol `a` followed by a period of
+prose. The following `◊"."` is a second command. Its quoted contents are
+verbatim text, so it produces the string `"."`.
+
+Prose commands may also appear inside a parenthesized Clojure form. The reader
+temporarily separates those nested commands, asks Edamame to read the enclosing
+Clojure, and then puts the nested forms back in place.
+
+
+### Named commands
+
+A named command is Prose's compact syntax for a Clojure call form. It begins
+with a `◊` followed directly by a Clojure symbol. The reader places that symbol
+first in a list:
+
+```prose
+◊greeting
+```
+
+If this is the complete source, the reader returns:
+
+```clojure
+[(greeting)]
+
+```
+
+The outer vector represents the document. The inner list is the named command.
+Reading constructs the list but does not resolve or call `greeting`.
+
+Arguments follow the command name. Square brackets contain Clojure values,
+while curly braces contain prose:
+
+```prose
+◊heading[2]{Introduction}
+```
+
+This reads as:
+
+```clojure
+[(heading 2 "Introduction")]
+
+```
+
+Named commands can contain richer Clojure values and nested commands. For
+example:
+
+```prose
+◊a[{:href "/docs"}]{Read the ◊em{manual}.}
+```
+
+This reads as:
+
+```clojure
+[(a {:href "/docs"} "Read the " (em "manual") ".")]
+
+```
+
+The map from the square argument becomes the first argument to `a`. The curly
+argument contributes the text `"Read the "`, the nested `(em "manual")` command,
+and the final `"."`.
+
+Square and curly arguments may be repeated and mixed. The reader preserves
+their order:
+
+```prose
+◊combine[1]{two}[3]{four}
+```
+
+This reads as:
+
+```clojure
+[(combine 1 "two" 3 "four")]
+
+```
+
+Command names may be namespace-qualified. Whitespace may appear between a
+command name and its arguments. Delimited arguments balance nested parentheses,
+brackets, or braces, and delimiters inside Clojure strings do not close an
+argument.
+
+
+### Verbatim text and grouped commands
+
+The `◊"text"` form inserts verbatim text. A lozenge inside it is ordinary
+text, and a backslash escapes the next character:
+
+```prose
+A ◊"literal ◊ symbol".
+```
+
+reads as:
+
+```clojure
+["A " "literal ◊ symbol" "."]
+
+```
+
+The less common double-lozenge form keeps the command name, square arguments,
+and curly arguments grouped instead of splicing them into an ordinary function
+call:
+
+```prose
+◊◊group[a b]{body}
+```
+
+reads as:
+
+```clojure
+[([group] [a b] ["body"])]
+
+```
+
+Thus `◊◊group[a b]{body}` becomes `([group] [a b] ["body"])`, rather than
+`(group a b "body")`.
+
+
+## How the reader is constructed
+
+Earlier versions of Prose generated their parser with Instaparse, which limited support to Clojure ans ClojureScript.
+
+The current reader uses a small recursive-descent scanner written in portable
+CLJC, which also works in Babashka. It needs no parser generator: after a
+lozenge, one character is enough to choose between verbatim text, symbol
+insertion, parenthesized Clojure, a named command, and a grouped named command.
+Each delimited command also has an explicit closing character.
+
+Reading still happens in two phases:
+
+1. The scanner makes a left-to-right pass over the Prose structure. It separates
+   plain text from commands, balances nested delimiters, protects Clojure
+   strings, and records each command's position in the source.
+2. The clojurizer turns those internal nodes into ordinary Clojure data. Edamame
+   reads the embedded Clojure fragments; Prose combines the resulting forms
+   with the surrounding text and nested commands.
+
+The scanner nodes are an implementation detail. `fr.jeremyschoffen.prose.alpha.reader.core/read-from-string`
+always returns evaluator-neutral Clojure data rather than a parser-specific
+syntax tree.
+
+
+## Namespaces and `::` keywords
+
+Most documents need no namespace setup. It matters when embedded Clojure uses
+auto-resolved keywords such as `::title` or `::ui/button`.
+
+Those keywords do not contain their complete namespace. Clojure normally fills
+it in from the current namespace and its aliases:
+
+- `::title` uses the current namespace.
+- `::ui/button` uses the namespace assigned to the `ui` alias.
+
+The Prose reader does not guess that context. You can provide it when reading:
+
+```clojure
+
 (reader/read-from-string
-  "◊(vector ::local ::alias/value)"
-  {:initial-ns 'example.document
+  "◊(vector ::title ::ui/button)"
+  {:initial-ns 'guide.introduction
    :reader-options
-   {:auto-resolve {:current 'ignored.namespace
-                   'alias 'example.ns}}})
-;; => [(vector :example.document/local :example.ns/value)]
+   {:auto-resolve {'ui 'guide.ui}}})
+
+```
+;=>
+```clojure
+[(vector :guide.introduction/title :guide.ui/button)]
 ```
 
-## Source regions and errors
+Here `:initial-ns` tells the reader what "the current namespace" means, so
+`::title` becomes `:guide.introduction/title`. The alias map tells it what `ui`
+means, so `::ui/button` becomes `:guide.ui/button`.
 
-Every non-text form carries a
-`:fr.jeremyschoffen.prose.alpha.reader.core/parse-region` metadata map. Regions
-use half-open `:start-index` and `:end-index` values plus one-based line and
-column positions. `fr.jeremyschoffen.prose.alpha.reader.core/form->text`
-uses that metadata to return the exact source slice. Strings return themselves.
+These settings affect only how the source is read. The reader does not create or
+enter `guide.introduction`, load `guide.ui`, or execute any document code.
 
-Malformed commands throw `ExceptionInfo` with Prose-owned data. The data
-includes `:type`, `:source`, `:text`, indexes, line and column positions, and the
-`:expected` construct. Dangling lozenges, invalid command names or symbols,
-unterminated strings, unclosed delimiters, and invalid embedded Clojure all use
-this error shape.
+`:reader-options` is the lower-level escape hatch for configuring Edamame, the
+Clojure reader used inside Prose commands. Most callers will not need it except
+to supply aliases. When provided, this map replaces Prose's default Edamame
+options rather than being merged with them. Without it, Prose enables the usual
+Clojure forms and disables read-eval. See
+[Edamame's documentation](https://github.com/borkdude/edamame) for the available
+options.
 
-## Evaluators and runtimes
+If both `:initial-ns` and `:reader-options` specify a current namespace,
+`:initial-ns` wins. Alias mappings from `:reader-options` are still preserved.
 
-The public reader is pure and does not evaluate its output. Document programs
-use the staged JVM or SCI adapter, which reads and evaluates one top-level item
-at a time. Trusted JVM Clojure retains the runtime classpath, normal macro
-expansion, compilation, and Java interop. SCI remains portable across supported
-hosts.
+`read-from-string` does not run an `ns`, `require`, `alias`, or `in-ns` form that
+it finds in the document. It only returns the form. That form therefore cannot
+change how the reader understands the source that follows it.
 
-The reader, document helpers, tag constructors, and output compilers load under
-Babashka. The portable SCI document path runs through
-`fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator`; Babashka 1.12.218
-is the tested host. Prose keeps its configured inner SCI context and restores
-the caller's current SCI namespace after success, failure, and recursive
-requirements. The trusted JVM adapter remains separate.
+If a document expects an earlier namespace declaration or alias to affect later
+forms, use a [document evaluator](evaluation.md). It reads and runs each
+top-level form before moving on to the next one.
 
-Run `bb test` to execute the Clojure, ClojureScript, and mandatory Babashka
-compatibility gates.
+
+## Recovering source text
+
+Every returned non-text form carries a source region in its metadata.
+`fr.jeremyschoffen.prose.alpha.reader.core/form->text` uses that region to recover the exact part of the
+original document that produced the form:
+
+```clojure
+
+(let [source "Before ◊em{hello} after"
+      forms (reader/read-from-string source)
+      form (second forms)]
+  (reader/form->text form source))
+
+```
+;=>
+```clojure
+◊em{hello}
+```
+
+A source region records where a form begins and ends. The indexes count
+characters from the beginning of the document, starting at zero.
+
+`:start-index` points to the first character of the form. `:end-index` points
+to the first character after the form. In other words, it is a half-open
+interval, like clojure.core/subs.
+
+For example, the command in `"Before ◊em{hello} after"` has this region:
+
+```clojure
+{:start-index 7
+ :end-index 17
+ :start-line 1
+ :start-column 8
+ :end-line 1
+ :end-column 18}
+```
+
+The vector returned for the complete document also has a source region. Its
+region covers the whole source string.
+
+Plain text is already returned as a string, so `form->text` does not need to
+look up a region for it. It simply returns the string unchanged.
+
+
+## Reader errors
+
+Malformed commands fail at the offending source location. For example, reading
+this incomplete form:
+
+```clojure
+(reader/read-from-string "line one\nbefore ◊(inc 1")
+```
+
+prints a diagnostic to standard error and throws an `ExceptionInfo` with the
+message:
+
+```text
+Prose reader error at line 2, column 15: expected ).
+```
+
+The exception data contains the original source, failed text, half-open indexes,
+line and column positions, and the expected construct. Its `:phase` distinguishes
+a structural scanning error, such as an unmatched delimiter, from an error while
+Edamame reads embedded Clojure.
+
+
+## Reading versus evaluating
+
+Use `fr.jeremyschoffen.prose.alpha.reader.core/read-from-string` when you want to inspect or transform a
+whole document without running it. Do not call `eval` directly on the returned
+vector when the document is a program. Prose's document evaluators scan the
+complete structure, then read and evaluate one top-level item at a time so that
+earlier namespace changes can affect later reading.
+
+`fr.jeremyschoffen.prose.alpha.reader.core/reduce-top-level` is the lower-level seam used to build such an
+evaluator. Most applications should use
+`fr.jeremyschoffen.prose.alpha.document.clojure/make-evaluator` for trusted JVM
+code or `fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator` for an
+isolated, portable environment. When Prose runs under Babashka, use the SCI
+document evaluator for programmable documents.
+
+> Now that we know how Prose reads a document, let's see how it runs one. Continue to [Evaluation model](evaluation.md).

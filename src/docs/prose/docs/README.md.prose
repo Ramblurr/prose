@@ -14,12 +14,27 @@ Try it now in your browser at https://ramblurr.github.io/prose
 Then, optionally (but recommended), install an editor plugin/package for it.
 See [editors/README.md](editors/README.md).
 
-## Usage
+## What is Prose?
 The main idea is to have programmable documents in Clojure. To do so, Prose
 flips the relationship between plain text and code. In a Clojure file, text is
 assumed to be code except in special cases like strings and comments.
 In Prose, text is assumed to be just plain text except in special cases i.e.
 Clojure code.
+
+## Docs
+
+Below you will find the [Quick Start](#quick-start) section to get going. When
+you are ready to dive deep, then check out:
+
+- [Documentation index](doc/README.md)
+  1. [Prose's reader](doc/reader.md) — learn the command language and how source
+     becomes Clojure data.
+  2. [Evaluation model](doc/evaluation.md) — run a document and work with its
+     result.
+  3. [Compiling documents](doc/compilation.md) — turn that result into HTML,
+     Markdown, or another output format.
+
+## Quick Start
 
 ### Syntax
 Prose provides a reader similar to what we can find in ◊|pollen◊"." Text is
