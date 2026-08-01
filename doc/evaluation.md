@@ -56,6 +56,9 @@ is read as:
 
 ```
 
+The `div`, `ul`, and `li` tags have become calls to tag functions with the same
+names.
+
 Using eval on this vector is problematic:
 ```clojure
 
@@ -120,8 +123,8 @@ See:
 Can't set!: *ns* from non-binding thread
 ```
 
-Since we want to use ephemeral namespaces this is a problem for a pure Clojure
-evaluation scheme. Sci is an interesting solution to get around this limitation.
+This prevents the temporary-namespace evaluator from running inside a future.
+SCI provides isolated evaluation environments without that restriction.
 
 
 ## Reading and evaluating documents
@@ -180,7 +183,12 @@ A successful evaluation returns a map with two entries:
 - `:forms` contains the top-level forms as Prose read them.
 - `:document` contains the corresponding evaluated values.
 
-Pass `:document` to an output compiler:
+The value returned by a tag function is its tag result. A tag result may be any
+Clojure value; the evaluator does not require a particular document
+representation.
+
+When those values are intended for an output compiler, pass `:document` to the
+compiler:
 
 ```clojure
 
@@ -188,8 +196,8 @@ Pass `:document` to an output compiler:
 
 ```
 
-This is real evaluation rather than a pure read. Document code can define vars,
-perform I/O, and produce any other effects allowed by the evaluator.
+The evaluator runs the document's code. That code can define vars, perform I/O,
+and do anything else the evaluator allows.
 
 ### Errors
 

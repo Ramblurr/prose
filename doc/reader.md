@@ -83,11 +83,11 @@ temporarily separates those nested commands, asks Edamame to read the enclosing
 Clojure, and then puts the nested forms back in place.
 
 
-### Named commands
+### Tags and tag functions
 
-A named command is Prose's compact syntax for a Clojure call form. It begins
-with a `◊` followed directly by a Clojure symbol. The reader places that symbol
-first in a list:
+A tag is Prose's compact syntax for a Clojure call form. It begins with a
+`◊` followed directly by a Clojure symbol. That symbol names the tag function,
+and the reader places it first in a list:
 
 ```prose
 ◊greeting
@@ -100,11 +100,12 @@ If this is the complete source, the reader returns:
 
 ```
 
-The outer vector represents the document. The inner list is the named command.
-Reading constructs the list but does not resolve or call `greeting`.
+The outer vector represents the document. The inner list is the call form
+produced by the tag. At this point, `greeting` is only a symbol. Reading does not
+resolve or call the tag function.
 
-Arguments follow the command name. Square brackets contain Clojure values,
-while curly braces contain prose:
+Arguments to the tag function follow its name. Square brackets contain Clojure
+values, while curly braces contain prose:
 
 ```prose
 ◊heading[2]{Introduction}
@@ -117,8 +118,11 @@ This reads as:
 
 ```
 
-Named commands can contain richer Clojure values and nested commands. For
-example:
+If the document is later evaluated, Clojure resolves `heading` and evaluates
+this call normally. The value returned by the tag function becomes part of the
+evaluated document.
+
+Tags can contain richer Clojure values and other tags. For example:
 
 ```prose
 ◊a[{:href "/docs"}]{Read the ◊em{manual}.}
@@ -132,8 +136,8 @@ This reads as:
 ```
 
 The map from the square argument becomes the first argument to `a`. The curly
-argument contributes the text `"Read the "`, the nested `(em "manual")` command,
-and the final `"."`.
+argument contributes the text `"Read the "`, the nested `em` tag, and the final
+`"."`.
 
 Square and curly arguments may be repeated and mixed. The reader preserves
 their order:
@@ -149,13 +153,17 @@ This reads as:
 
 ```
 
-Command names may be namespace-qualified. Whitespace may appear between a
-command name and its arguments. Delimited arguments balance nested parentheses,
-brackets, or braces, and delimiters inside Clojure strings do not close an
-argument.
+Tag names may be namespace-qualified. Whitespace may appear between a tag name
+and its arguments. Delimited arguments balance nested parentheses, brackets, or
+braces, and delimiters inside Clojure strings do not close an argument.
+
+A tag function is an ordinary Clojure function and may return any Clojure value.
+That value is the tag result. For example, `◊str{text}` reads as
+`(str "text")`. Here `str` is the tag function. Evaluating the call produces the
+tag result `"text"`.
 
 
-### Verbatim text and grouped commands
+### Verbatim text and grouped tags
 
 The `◊"text"` form inserts verbatim text. A lozenge inside it is ordinary
 text, and a backslash escapes the next character:
@@ -171,8 +179,8 @@ reads as:
 
 ```
 
-The less common double-lozenge form keeps the command name, square arguments,
-and curly arguments grouped instead of splicing them into an ordinary function
+The less common double-lozenge form keeps the tag name, square arguments, and
+curly arguments grouped instead of splicing them into an ordinary function
 call:
 
 ```prose
@@ -197,8 +205,8 @@ Earlier versions of Prose generated their parser with Instaparse, which limited 
 The current reader uses a small recursive-descent scanner written in portable
 CLJC, which also works in Babashka. It needs no parser generator: after a
 lozenge, one character is enough to choose between verbatim text, symbol
-insertion, parenthesized Clojure, a named command, and a grouped named command.
-Each delimited command also has an explicit closing character.
+insertion, parenthesized Clojure, a tag, and a grouped tag. Each delimited
+command also has an explicit closing character.
 
 Reading still happens in two phases:
 

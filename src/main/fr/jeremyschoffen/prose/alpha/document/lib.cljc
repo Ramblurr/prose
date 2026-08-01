@@ -221,7 +221,7 @@ Api providing several tools to use inside or outside of prose document.
 
 
 (defn get-eval-doc
-  "Returns the staged document evaluator from the evaluation environment."
+  "Returns the document evaluator from the evaluation environment."
   []
   (get-env :prose.alpha.document/evaluate-document))
 

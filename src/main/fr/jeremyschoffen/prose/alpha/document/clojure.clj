@@ -73,7 +73,7 @@ API providing evaluation tools to evaluate documents using Clojure's environment
   "Evaluates the document at `path` one top-level item at a time.
 
   Each item is read using namespace state produced by earlier evaluation.
-  Returns exactly `:forms` and `:document`. Evaluation performs real effects.
+  Returns exactly `:forms` and `:document`. Document code may perform I/O or other effects.
   `input` remains document data and is not interpreted as control options.
 
   Options:

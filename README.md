@@ -10,7 +10,7 @@ Try it now in your browser at https://ramblurr.github.io/prose
 
 ## Installation
 ```clojure
-{io.github.ramblurr/prose {:git/sha "a112892d76cbd17a46d25086298e85a96c14b781"}}
+{io.github.ramblurr/prose {:git/sha "53a2aeb41397184f63f9076e6dda597a405b5af1"}}
 ```
 
 Then, optionally (but recommended), install an editor plugin/package for it.
@@ -39,9 +39,25 @@ you are ready to dive deep, then check out:
 ## Quick Start
 
 ### Syntax
-Prose provides a reader similar to what we can find in [Pollen](https://github.com/mbutterick/pollen). Text is
-either plain text or a special construct. All special constructs begin with
-the character `◊`(lozenge).
+
+A Prose document is text by default. The reader copies that text exactly until
+a `◊` starts a command. The character after the lozenge tells Prose what kind
+of command follows.
+
+A Prose document is plain text until a `◊` (lozenge) starts a command.
+Commands enable you to embed Clojure forms, symbols, and functions.
+
+Prose borrows this text-first approach and the lozenge from [Pollen](https://github.com/mbutterick/pollen).
+
+Prose has four kinds of commands:
+
+- `◊(...)` - a Clojure form, such as a function call or definition
+- `◊|name` - a Clojure symbol used by itself
+- `◊name{...}` or `◊name[...]{...}` - a tag that calls a Clojure
+  function, with optional Clojure arguments in `[]`
+- `◊"..."` - text in which the lozenge has no special meaning
+
+The examples below take them one at a time.
 
 #### Clojure calls:
 The text:
@@ -63,7 +79,15 @@ reads as:
 ["We can use symbols " some-symbol]
 ```
 
-#### Tag function:
+#### Tags are functions
+
+Prose tags follow three rules:
+
+1. Every tag calls a Clojure function with the same name.
+2. Values inside `[]` are Clojure arguments. Text inside `{}` becomes string
+   arguments.
+3. The whole tag is replaced by the function's return value.
+
 The text:
 ```text
 There is a tag function syntax looking like:
@@ -77,9 +101,6 @@ reads as:
 ```clojure
 ["There is a tag function syntax looking like:\n" (div {:class "grid"} " some content") "\n" (div " some " (em "content")) "\n\nor even:\n" (str "text")]
 ```
-
-- Clojure code argument in brackets
-- text argument in braces
 
 #### Escaped / verbatim text:
 The text:
@@ -252,10 +273,10 @@ functionality than just composing `slurp`, `read` and `eval` functions.
 The `make-evaluator` functions there sets up the possibility
 for documents to import other documents, passing input data to documents...
 
-`reader/read-from-string` is pure: it returns ordinary Clojure data without
-executing it. Document evaluation performs real effects. It first checks the
-whole source for structural errors, then reads and evaluates one top-level item
-at a time so that namespace changes and aliases affect later items.
+`reader/read-from-string` returns ordinary Clojure data without running it. A
+document evaluator first checks the whole source for structural errors, then
+reads and evaluates one top-level item at a time so that namespace changes and
+aliases affect later items.
 
 A successful evaluation returns `:forms`, the intermediate forms, and
 `:document`, their evaluated values. Pass only `:document` to an output compiler.
@@ -341,10 +362,10 @@ Cons:
 - Managing the sci context makes for an api not as easy to use.
 
 ### Limitations
-The pure reader still needs namespace aliases supplied in its reader options.
-The staged document evaluators instead use namespace changes from each evaluated
-top-level item while reading the next one. SCI can resolve only namespaces and
-vars exposed by its configured context. Babashka users run programmable
+The reader still needs namespace aliases supplied in its reader options.
+Document evaluators use namespace changes made by each top-level item when they
+read the next one. SCI can resolve only namespaces and vars exposed by its
+configured context. Babashka users run programmable
 documents through
 `fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator`; Babashka 1.12.218
 is the tested host. Prose keeps its configured inner SCI context and restores

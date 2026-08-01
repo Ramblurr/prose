@@ -297,12 +297,12 @@
      end]))
 
 
-(defn- named-command-node [source command-start unspliced?]
+(defn- tag-command-node [source command-start unspliced?]
   (let [name-start (+ command-start (if unspliced? 2 1))
         name-end (symbol-end source
                              name-start
                              command-start
-                             "a command name")
+                             "a tag name")
         name-node (with-meta {:tag :tag-name
                               :content [(subs source name-start name-end)]}
                     {:start-index name-start
@@ -335,9 +335,9 @@
          [[node] end])
     \| (let [[node end] (symbol-node source command-start)]
          [[node] end])
-    \◊ (let [[node end] (named-command-node source command-start true)]
+    \◊ (let [[node end] (tag-command-node source command-start true)]
          [[node] end])
-    (let [[node end] (named-command-node source command-start false)]
+    (let [[node end] (tag-command-node source command-start false)]
       [[node] end])))
 
 

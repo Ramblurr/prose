@@ -1,6 +1,6 @@
 (ns ^{:author "Jeremy Schoffen"
       :doc "
-Shared staged document evaluation.
+Shared document evaluation.
 "}
   fr.jeremyschoffen.prose.alpha.document.common.evaluator
   (:require

@@ -126,7 +126,7 @@
     (is (= [] @reduced))))
 
 
-(deftest reads-named-commands-and-delimited-arguments
+(deftest reads-tags-and-delimited-arguments
   (are [source expected] (= expected (reader/read-from-string source))
     "◊tag" '[(tag)]
     "◊some.ns/tag" '[(some.ns/tag)]
@@ -138,7 +138,7 @@
     "◊tag{before {nested} after}" '[(tag "before " "{" "nested" "}" " after")]))
 
 
-(deftest preserves-named-command-argument-order-and-whitespace
+(deftest preserves-tag-argument-order-and-whitespace
   (are [source expected] (= expected (reader/read-from-string source))
     "◊tag [1]\n  {body}" '[(tag 1 "body")]
     "◊tag[1]{two}[3]{four}" '[(tag 1 "two" 3 "four")]
@@ -146,7 +146,7 @@
     "◊tag   trailing" '[(tag) "   trailing"]))
 
 
-(deftest reads-recursively-nested-named-commands
+(deftest reads-recursively-nested-tags
   (are [source expected] (= expected (reader/read-from-string source))
     "◊outer{before ◊inner{x} after}"
     '[(outer "before " (inner "x") " after")]
@@ -156,13 +156,13 @@
     '[(vector (outer :class "x" "before " (inner "after")))]))
 
 
-(deftest preserves-unspliced-command-shape
+(deftest preserves-grouped-tag-shape
   (are [source expected] (= expected (reader/read-from-string source))
     "◊◊group[a b]{body}" '[([group] [a b] ["body"])]
     "◊◊some.ns/group [a] {body}" '[([some.ns/group] [a] ["body"])]))
 
 
-(deftest reads-representative-named-command-document
+(deftest reads-representative-document-with-tags
   (is (= '["Some text. "
            (div {:class (str "c1 c2")} " " (def x 1) " " (def y 2) " ")]
          (reader/read-from-string
@@ -231,13 +231,13 @@
         indexes #(select-keys (form-region %)
                               [:start-index :end-index])]
     (is (= {:symbol {:start-index 4 :end-index 11}
-            :unspliced-command {:start-index 12 :end-index 38}
+            :grouped-tag {:start-index 12 :end-index 38}
             :name {:start-index 14 :end-index 19}
             :square-argument {:start-index 19 :end-index 22}
             :text-argument {:start-index 22 :end-index 38}
             :nested-command {:start-index 28 :end-index 37}}
            {:symbol (indexes symbol)
-            :unspliced-command (indexes command)
+            :grouped-tag (indexes command)
             :name (indexes name-form)
             :square-argument (indexes square-argument)
             :text-argument (indexes text-argument)
@@ -301,7 +301,7 @@
      :index 17
      :line 2
      :column 9
-     :expected "a command name"}
+     :expected "a tag name"}
 
     "line one\nbefore ◊|["
     {:text "◊|["
