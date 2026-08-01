@@ -1,6 +1,26 @@
 # Prose Playground
 
-The Playground is an isolated static application. Its ClojureScript, npm, and vendored browser dependencies do not enter the Prose library dependency graph.
+A playground to try out [Prose](../README.md).
+
+Try it now at https://ramblurr.github.io/prose
+
+The playground offers:
+
+- Type `@` to insert a `◊`. Type `@@` to insert a literal `@`
+- Several builtin examples showcasing different Prose features
+- View the intermedisate oututs from the Reader and Evaluator
+- Syntax highlighting for Prose and embedded Clojure
+- Persistent code editor and theme
+
+## Run the playground locally
+
+From a local checkout of the repo:
+
+```sh
+bb playground:serve
+```
+
+Open <http://localhost:8000>
 
 ## Build the deployment artifact
 
@@ -16,19 +36,9 @@ From the repository root, create a clean production artifact:
 bb playground:build
 ```
 
-The command compiles the optimized browser host and Render worker, copies every runtime asset, and verifies that the artifact contains only local, relative references. It neither installs dependencies nor fetches runtime assets.
-
 The complete deployable site is `playground/dist/`. You can serve it from a domain root or any URL prefix.
 
-Datastar v1.0.2 is vendored under `vendor/`; see `vendor/README.md` for its provenance, license, and machine-checked digest. The artifact includes the bundle and all third-party notices.
-
-## Test locally
-
-```sh
-bb playground:serve
-```
-
-Open <http://localhost:8000>. To rebuild the artifact and run the deterministic public-seam and Render-worker tests, run:
+## Test
 
 ```sh
 bb playground:check
@@ -42,6 +52,9 @@ Copy the contents of `playground/dist/` to the directory served by your static h
 rsync -av --delete playground/dist/ user@example.org:/srv/www/playground/
 ```
 
-Replace the destination with your host and document-root path. The trailing slashes copy the artifact's contents rather than the `dist` directory itself. `--delete` removes files at the destination that are absent from the new artifact, so dedicate that destination directory to the Playground.
+## License
 
-The host needs only to serve these files over HTTP; the Playground requires no server application or runtime network fetches.
+Copyright © 2026 Casey Link <casey@outskirtslabs.com>
+
+Distributed under the Eclipse Public License v 2.0.
+
