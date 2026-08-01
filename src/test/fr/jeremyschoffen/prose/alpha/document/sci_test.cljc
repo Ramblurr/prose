@@ -78,9 +78,9 @@
    :cljs
    (do
      (def resource
-       {"complex-doc/master.prose" "test-resources/complex-doc/master.prose"
-        "complex-doc/section-1.prose" "test-resources/complex-doc/section-1.prose"
-        "complex-doc/section-2.prose" "test-resources/complex-doc/section-2.prose"})
+       {"complex-doc/master.prose" "resources/test/complex-doc/master.prose"
+        "complex-doc/section-1.prose" "resources/test/complex-doc/section-1.prose"
+        "complex-doc/section-2.prose" "resources/test/complex-doc/section-2.prose"})
 
      (def fs (js/require "fs"))
 

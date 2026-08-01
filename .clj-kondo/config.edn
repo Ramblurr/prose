@@ -1,2 +1,2 @@
-{:config-paths ["../resources/clj-kondo.exports/fr.jeremyschoffen/prose"]}
+{:config-paths ["../resources/main/clj-kondo.exports/fr.jeremyschoffen/prose"]}
 
