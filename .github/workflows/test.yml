@@ -22,6 +22,6 @@ jobs:
       - uses: DeLaGuardo/setup-clojure@13.6.1
         with:
           cli: latest
-          bb: latest
+          bb: 1.12.218
       - uses: extractions/setup-just@v4
       - run: just test
