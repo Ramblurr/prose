@@ -1,8 +1,8 @@
 name: Deploy Playground to Pages
 
 on:
-  push:
-    branches: [master]
+  check_suite:
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -16,12 +16,25 @@ concurrency:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'check_suite' &&
+       github.event.check_suite.app.slug == 'ol-nixbot' &&
+       github.event.check_suite.head_branch == 'master' &&
+       github.event.check_suite.conclusion == 'success')
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: >-
+            ${{
+              github.event_name == 'check_suite' &&
+              github.event.check_suite.head_sha ||
+              github.sha
+            }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
