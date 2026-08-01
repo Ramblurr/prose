@@ -19,9 +19,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
       - uses: DeLaGuardo/setup-clojure@13.6.1
         with:
           cli: latest
           bb: 1.12.218
       - uses: extractions/setup-just@v4
+      - run: pnpm --dir playground install --frozen-lockfile --ignore-scripts
       - run: just test
