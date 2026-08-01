@@ -273,6 +273,13 @@
                        nil
                        font-lock-function-name-face))))))
 
+(ert-deftest clojure-prose-mode/insert-lozenge-command-always-inserts ()
+  (with-temp-buffer
+    (insert "◊")
+    (let ((last-command 'clojure-prose-insert-lozenge))
+      (call-interactively #'clojure-prose-insert-lozenge))
+    (should (equal (buffer-string) "◊◊"))))
+
 (ert-deftest clojure-prose-mode/electric-lozenge-works-in-host-and-clojure ()
   (clojure-prose-test-with-file "host\n◊(identity nil)\n"
     (goto-char (point-min))
@@ -280,14 +287,14 @@
     (let ((last-command nil))
       (call-interactively (key-binding (kbd "@")))
       (should (eq (char-before) ?◊))
-      (setq last-command 'clojure-prose-insert-lozenge)
+      (setq last-command 'clojure-prose--electric-lozenge)
       (call-interactively (key-binding (kbd "@"))))
     (search-forward "identity")
     (pm-switch-to-buffer)
     (let ((last-command nil))
       (call-interactively (key-binding (kbd "@")))
       (should (eq (char-before) ?◊))
-      (setq last-command 'clojure-prose-insert-lozenge)
+      (setq last-command 'clojure-prose--electric-lozenge)
       (call-interactively (key-binding (kbd "@"))))
     (should (equal (buffer-string)
                    "host@\n◊(identity@ nil)\n"))))
@@ -732,7 +739,7 @@
             (push major-mode modes)
             (let ((last-command nil))
               (call-interactively (key-binding (kbd "@")))
-              (setq last-command 'clojure-prose-insert-lozenge)
+              (setq last-command 'clojure-prose--electric-lozenge)
               (call-interactively (key-binding (kbd "@"))))))
         (goto-char (point-min))
         (search-forward "HOST2@ ◊")

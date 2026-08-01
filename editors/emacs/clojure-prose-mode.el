@@ -422,15 +422,21 @@ font-lock matchers do not repeatedly rescan the same document."
   "Compose Prose command highlighting with the current chunk mode."
   (font-lock-add-keywords nil clojure-prose--font-lock-keywords 'append))
 
+;;;###autoload
 (defun clojure-prose-insert-lozenge ()
+  "Insert a lozenge at point."
+  (interactive)
+  (insert "◊"))
+
+(defun clojure-prose--electric-lozenge ()
   "Insert a lozenge, or turn an immediately preceding insertion into `@'."
   (interactive)
-  (if (and (eq last-command 'clojure-prose-insert-lozenge)
+  (if (and (eq last-command 'clojure-prose--electric-lozenge)
            (eq (char-before) ?◊))
       (progn
         (delete-char -1)
         (insert "@"))
-    (insert "◊")))
+    (clojure-prose-insert-lozenge)))
 
 (defun clojure-prose--host-file-name ()
   "Return the current filename without its final `.prose' suffix."
@@ -557,7 +563,7 @@ font-lock matchers do not repeatedly rescan the same document."
     (funcall original keep-mode-if-same)))
 
 (define-key clojure-prose-mode-map (kbd "@")
-  #'clojure-prose-insert-lozenge)
+  #'clojure-prose--electric-lozenge)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.prose\\'" . clojure-prose-mode))

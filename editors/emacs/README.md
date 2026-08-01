@@ -69,6 +69,16 @@ Load the package directly while developing it:
 
 Opening a `.prose` file activates Clojure Prose Mode; for a compound name such as `document.md.prose`, the preceding extension selects the host mode.
 
+## Typing the lozenge
+
+By default, `@` inserts `◊` and `@@` inserts `@`. To add a dedicated key, bind
+`clojure-prose-insert-lozenge`:
+
+```elisp
+(define-key clojure-prose-mode-map (kbd "C-c l")
+  #'clojure-prose-insert-lozenge)
+```
+
 ## Syntax warnings
 
 The mode flags broken commands, unfinished strings, and unclosed forms as you
