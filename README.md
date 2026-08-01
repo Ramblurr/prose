@@ -10,7 +10,7 @@ Try it now in your browser at https://ramblurr.github.io/prose
 
 ## Installation
 ```clojure
-{io.github.ramblurr/prose {:git/sha "04b6029cb76ecb80300df24957814ffe916586a3"}}
+{io.github.ramblurr/prose {:git/sha "30ce9ccd22cefb08cbe3fe85ed6edb329ff55228"}}
 ```
 
 Then, optionally (but recommended), install an editor plugin/package for it.

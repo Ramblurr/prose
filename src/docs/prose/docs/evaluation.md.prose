@@ -18,16 +18,19 @@ using `eval` on 'code as data' isn't sufficient.
 ## Considerations
 At the moment, the main use case of prose is the creation of programmable
 documents by embedding Clojure inside them. In other words we want documents as
-Clojure programs.
+Clojure programs, because ["the book is code"][big-picture].
+
+[big-picture]: https://docs.racket-lang.org/pollen/big-picture.html
 
 The basic idea we cover here works in three phases:
-- turn prose text into 'Clojure code as data' using our reader
-- use Clojure's evaluation mechanism to evaluate this 'code as data'.
+- **read**: turn Prose text into 'Clojure code as data' using our reader
+- **eval**: use Clojure's evaluation mechanism to evaluate this 'code as data'.
   The result of this evaluation is treated as data representing the final
   document (we tend to use enlive style trees).
-- compile the tree to a compilation target, HTML for instance.
+- and, *cheeky grin*, **print**: compile the tree to a compilation target:
+  HTML, LaTeX, or Markdown (like this document you are reading was created).
 
-The eval part of this algorithm presents challenges that we explore here.
+The `eval` part of this algorithm presents challenges that we explore here.
 
 ### Naive evaluation and `require`
 Directly using the `eval` function on the data returned by our reader has
@@ -101,57 +104,130 @@ Since we want to use ephemeral namespaces this is a problem for a pure Clojure
 evaluation scheme. Sci is an interesting solution to get around this limitation.
 
 
-## Staged document evaluation
+## Reading and evaluating documents
 
-The reader example above is pure: it returns ordinary Clojure data and never
-executes a form. Document programs should use the Clojure or SCI document
-adapter instead. Each adapter first scans the complete source for structural
-errors, then reads and evaluates one top-level item at a time. A top-level `ns`,
-`in-ns`, `require`, or `alias` can therefore affect how the next item is read.
-A namespace change nested in one outer form affects only later top-level items;
-the rest of that outer form has already been read.
+The earlier example reads the entire document before it evaluates anything.
+That is not sufficient for a document program: a form such as `require`, `ns`,
+`in-ns`, or `alias` may change how later source must be read.
+
+Prose therefore processes a document in source order. It first checks the
+complete source for structural errors. It then reads and evaluates one
+top-level item before reading the next. Namespace changes made by one item are
+available when Prose reads the following item.
+
+This applies at top-level boundaries. If code changes the namespace inside a
+larger form, Prose has already read the rest of that form. The change takes
+effect when it reads the next top-level item.
+
+### Creating an evaluator
+
+Document evaluation is inherently stateful. The current namespace, aliases,
+and definitions can change as each item runs. They must remain available while
+Prose processes the rest of the document and any documents it requires.
+
+`make-evaluator` creates a function that manages this evaluation state and
+restores the caller's state afterward. This is why we create and retain an
+evaluator rather than composing `read` and `eval` for each call:
 
 ◊t/clj {
 (require '[fr.jeremyschoffen.prose.alpha.document.clojure :as document]
          '[fr.jeremyschoffen.prose.alpha.out.html.compiler :as html])
 
 (def evaluate-document (document/make-evaluator))
+}
+
+The evaluator accepts a document path, optional input data, and optional
+evaluation settings:
+
+◊t/clj {
 (def result
   (evaluate-document path input {:initial-ns 'my.document}))
+}
 
+`:initial-ns` selects the namespace in which Prose begins reading and
+evaluating the document. If you omit it, Prose creates a temporary namespace.
+After evaluation, it restores the caller's namespace and removes the temporary
+one.
+
+### Results
+
+A successful evaluation returns a map with two entries:
+
+- `:forms` contains the top-level forms as Prose read them.
+- `:document` contains the corresponding evaluated values.
+
+Pass `:document` to an output compiler:
+
+◊t/clj {
 (html/compile! (:document result))
 }
 
-A successful evaluation returns exactly `:forms` and `:document`. The first
-value contains the intermediate forms and the second contains their evaluated
-values. HTML, Markdown, and LaTeX compilers consume `:document`. Evaluation is
-real, so definitions, I/O, and other approved side effects happen.
+This is real evaluation rather than a pure read. Document code can define vars,
+perform I/O, and produce any other effects allowed by the evaluator.
 
-`:initial-ns` selects the initial namespace. Without it, evaluation starts in a
-hidden temporary namespace that is restored and removed afterward. Structural
-scan failures happen before user effects. Read and evaluation failures retain
-completed `:forms` and `:document` values in their exception data; evaluation
-failures also identify the failing form and its source region.
-The exception `:phase` is `:structural-scan`, `:read`, or `:evaluation`.
+### Errors
 
-`lib/require-doc` invokes the staged evaluator recursively and inserts the
-child's `:document` values. The child inherits the parent's current namespace
-context but restores the parent context when it returns. `lib/insert-doc`
-remains read-only and does not evaluate the inserted forms.
+When evaluation fails, the `:phase` value in the exception data tells you what
+Prose was doing:
 
-The SCI adapter has the same staged result contract on JVM Clojure,
-ClojureScript, and Babashka. On Babashka, use
-`fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator`; version 1.12.218
-is the tested host. Prose keeps its configured inner SCI context and restores
-the caller's exact current SCI namespace after success, failure, and recursive
-requirements. The trusted JVM adapter remains separate and uses
-`clojure.core/eval` with runtime classpath access. This lifecycle is synchronous
-and makes no concurrency guarantee for one mutable SCI context.
+- `:structural-scan` means the source has an unfinished command, an unmatched
+  delimiter, or another structural problem. Prose checks for these problems
+  before running any document code.
+- `:read` means Prose could not read the next top-level item as Clojure data.
+  Items before it may already have run.
+- `:evaluation` means Prose read the item successfully, but evaluating it threw
+  an exception.
+
+Read and evaluation errors include the `:forms` and `:document` values
+accumulated before the failure. Evaluation errors also identify the failing
+form and its location in the source.
+
+### Including other documents
+
+A document can evaluate and include another document with `require-doc`. For
+example, `report.md.prose` could contain:
+
+◊(md/code-block
+  {:content-type "prose"}
+  "◊(require '[fr.jeremyschoffen.prose.alpha.document.lib :as doc])
+
+# Report
+
+◊doc/require-doc{answer.md.prose}")
+
+And `answer.md.prose` could contain:
+
+◊(md/code-block
+  {:content-type "prose"}
+  "The answer is ◊(+ 20 22).")
+
+Prose evaluates `answer.md.prose` and inserts its document values into the
+report. The resulting document contains `The answer is 42.`
+
+The child begins with the parent's current namespace and aliases. If the child
+changes its namespace, Prose restores the parent's namespace before continuing
+with the next item in the parent.
+
+`insert-doc` behaves differently: it reads the child and inserts its forms
+without evaluating them. In the example above, replacing `require-doc` with
+`insert-doc` would insert the `(+ 20 22)` form rather than its value.
+
+### Choosing an evaluator
+
+The example above uses the JVM Clojure evaluator. It is intended for trusted
+documents and can access the runtime classpath.
+
+For isolated or portable evaluation, use
+`fr.jeremyschoffen.prose.alpha.document.sci/make-evaluator`. It follows the
+same document API but exposes only the namespaces and vars configured in its
+SCI context. When Prose itself runs under Babashka, use this SCI evaluator for
+programmable documents: Babashka hosts Prose, while the configured SCI context
+evaluates the document code.
 
 
 ## The lower-level evaluation toolkit
 The `fr.jeremyschoffen.prose.alpha.eval` namespaces evaluate sequences of forms
-that have already been read. They remain useful below the staged document API.
+that have already been read. They remain useful below the document evaluation API.
 This evaluation model is inspired by the ring spec and lives in the
 ◊t/sym[eval-common] namespace.
 
@@ -168,7 +244,7 @@ Note that forms are evaluated in sequence using ◊t/sym[eval-common/eval-forms*
 ◊(t/source eval-common/eval-forms*)
 
 This evaluates already-read forms in sequence. Document sources should use the
-staged adapter above so that evaluation can also affect how later forms are read.
+document evaluator above so that evaluation can also affect how later forms are read.
 
 The ◊t/sym[eval-common/evaluate] function is provided as a helper to tie this model together:
 ◊(t/source eval-common/evaluate)
