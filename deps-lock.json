@@ -232,6 +232,12 @@
     "http-kit/http-kit/2.8.1/http-kit-2.8.1.pom": {
       "sha256": "f549738c4daf851496c475ec8ce7fcdbf3c7f4bdccd5fe770743fb3f75da61dc"
     },
+    "io/github/clojure/tools.build/0.10.14/tools.build-0.10.14.jar": {
+      "sha256": "e95329eee72a2f2ff22c1ac41ac699709ecf860b8aa0709fadb2331751a9d74c"
+    },
+    "io/github/clojure/tools.build/0.10.14/tools.build-0.10.14.pom": {
+      "sha256": "e0188f0ad99902c9f77b043776ec42035e4133295890dbfe960bc244e4ed5f18"
+    },
     "io/methvin/directory-watcher/0.17.3/directory-watcher-0.17.3.jar": {
       "sha256": "0523dd38a393a63b75e4320ff523034a0ac3cea697f6151a7ac8a893c322531e"
     },

@@ -23,23 +23,15 @@
         let
           jdk = pkgs.jdk25;
           clojure = pkgs.clojure.override { inherit jdk; };
-          buildCommand = ''
-            mkdir -p target
-            jar --create --file target/prose.jar \
-              -C src/main . \
-              -C resources .
-          '';
         in
         clj-helpers.lib.mkCljLib {
-          inherit
-            buildCommand
-            jdk
-            pkgs
-            ;
+          inherit jdk pkgs;
           name = "prose";
           version = "0.0.0";
           src = ./.;
+          buildCommand = "clojure -Srepro -T:package jar";
           prepAliases = [
+            "package"
             "clj"
             "cljs"
             "test"
@@ -51,17 +43,14 @@
           ];
           lockCommand = ''
             export HOME="$tmp/home"
-            export GITLIBS="$HOME/.gitlibs"
-            export JAVA_HOME="${jdk.home}"
-            export JAVA_CMD="${jdk}/bin/java"
-            export JAVA_TOOL_OPTIONS="-Duser.home=$HOME"
             export PATH="${clojure}/bin:${jdk}/bin:$PATH"
             unset CLJ_CACHE CLJ_CONFIG XDG_CACHE_HOME XDG_CONFIG_HOME XDG_DATA_HOME
 
-            clojure -Srepro -X:deps prep :aliases '[:clj :cljs :test]'
+            clojure -Srepro -X:deps prep :aliases '[:package :clj :cljs :test]'
             clojure -Srepro -P -M:clj:cljs:test
             (cd playground && clojure -Srepro -P -M:test)
             bb -Sdeps '{:deps {io.github.jerems/prose {:local/root "."}}}' -e nil
+            clojure -Srepro -T:package jar
           '';
           checkCommand = ''
             just clj-test
