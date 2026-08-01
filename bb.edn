@@ -1,0 +1,73 @@
+{:paths []
+ :tasks {:requires
+         ([babashka.fs :as fs]
+          [babashka.tasks :refer [run shell]])
+
+         repl
+         {:override-builtin true
+          :doc "Start the project nREPL server"
+          :task (apply clojure
+                       "-M:clj:cljs:dev:nrepl:piggie:test"
+                       "-m" "nrepl.cmdline"
+                       "--middleware" "[cider.piggieback/wrap-cljs-repl]"
+                       *command-line-args*)}
+
+         repl:playground
+         {:doc "Start the Playground ClojureScript nREPL server"
+          :task (apply shell
+                       {:dir "playground"
+                        :extra-env {"NODE_PATH" (str (fs/absolutize "playground/node_modules"))}}
+                       "clojure" "-M:repl"
+                       *command-line-args*)}
+
+         repl:build
+         {:doc "Start the build nREPL server"
+          :task (apply clojure
+                       "-M:clj:nrepl:build"
+                       "-m" "nrepl.cmdline"
+                       *command-line-args*)}
+
+         test:clj
+         {:doc "Run the Clojure tests"
+          :task (apply clojure
+                       "-M:clj:cljs:test"
+                       "-m" "kaocha.runner" "unit-clj"
+                       *command-line-args*)}
+
+         test:cljs
+         {:doc "Run the ClojureScript tests"
+          :task (apply clojure
+                       "-M:clj:cljs:test"
+                       "-m" "kaocha.runner" "unit-cljs"
+                       *command-line-args*)}
+
+         test:bb
+         {:doc "Run the Babashka compatibility tests"
+          :task (shell "bb"
+                       "-Sdeps" "{:deps {io.github.jerems/prose {:local/root \".\"}}}"
+                       "script/check_babashka_compat.clj")}
+
+         playground:build
+         {:doc "Build the Playground deployment artifact"
+          :task (shell {:dir "playground"} "./scripts/build.sh")}
+
+         playground:serve
+         {:doc "Serve the Playground deployment artifact"
+          :task (shell "python3" "-m" "http.server"
+                       "--directory" "playground/dist" "8000")}
+
+         playground:check
+         {:doc "Build and test the Playground"
+          :task (do
+                  (fs/create-dirs "playground/dist")
+                  (spit "playground/dist/stale-output" "stale")
+                  (run 'playground:build)
+                  (shell {:dir "playground"} "pnpm" "run" "check"))}
+
+         test
+         {:doc "Run all tests"
+          :task (do
+                  (run 'test:clj)
+                  (run 'test:cljs)
+                  (run 'test:bb)
+                  (run 'playground:check))}}}

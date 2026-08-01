@@ -53,16 +53,15 @@
             clojure -Srepro -T:package jar
           '';
           checkCommand = ''
-            just clj-test
-            just cljs-test
+            bb test:clj
+            bb test:cljs
             mkdir -p "$TMPDIR/bb-clj-config"
-            CLJ_CONFIG="$TMPDIR/bb-clj-config" just bb-compat-test
-            just playground-check
+            CLJ_CONFIG="$TMPDIR/bb-clj-config" bb test:bb
+            bb playground:check
           '';
           gitRev = clj-helpers.lib.gitRev self;
           nativeBuildInputs = [
             pkgs.babashka
-            pkgs.just
             pkgs.nodejs_22
             pkgs.pnpm_11
             pkgs.pnpmConfigHook
@@ -107,7 +106,6 @@
               else
                 clj-helpers.packages.${pkgs.system}.deps-lock
             )
-            pkgs.just
             pkgs.nodejs_22
             pkgs.pnpm_11
             pkgs.util-linux

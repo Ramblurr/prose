@@ -26,6 +26,5 @@ jobs:
         with:
           cli: latest
           bb: 1.12.218
-      - uses: extractions/setup-just@v4
       - run: pnpm --dir playground install --frozen-lockfile --ignore-scripts
-      - run: just test
+      - run: bb test

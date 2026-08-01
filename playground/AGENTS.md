@@ -8,7 +8,7 @@ Playground's npm modules through `playground/node_modules`.
 Start the isolated Piggieback-backed nREPL server from the repository root:
 
 ```sh
-just playground-repl
+bb repl:playground
 ```
 
 The recipe runs from `playground/`, so nREPL writes
@@ -77,4 +77,4 @@ cljs_brepl ':cljs/quit'
 brepl -m "{\"op\" \"close\" \"session\" \"$CLJS_SESSION\"}"
 ```
 
-Stop `just playground-repl` with `Ctrl-C`.
+Stop `bb repl:playground` with `Ctrl-C`.

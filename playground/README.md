@@ -13,7 +13,7 @@ pnpm --dir playground install --frozen-lockfile --ignore-scripts
 From the repository root, create a clean production artifact:
 
 ```sh
-just playground-build
+bb playground:build
 ```
 
 The command compiles the optimized browser host and Render worker, copies every runtime asset, and verifies that the artifact contains only local, relative references. It neither installs dependencies nor fetches runtime assets.
@@ -25,13 +25,13 @@ Datastar v1.0.2 is vendored under `vendor/`; see `vendor/README.md` for its prov
 ## Test locally
 
 ```sh
-just playground-serve
+bb playground:serve
 ```
 
 Open <http://localhost:8000>. To rebuild the artifact and run the deterministic public-seam and Render-worker tests, run:
 
 ```sh
-just playground-check
+bb playground:check
 ```
 
 ## Deploy to a static host

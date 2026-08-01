@@ -87,7 +87,7 @@ test("documents a script-disabled frozen install", async () => {
 test("builds separate optimized ClojureScript host and worker targets without installing", async () => {
   const build = await text("scripts/build.sh");
   const check = await text("scripts/check.sh");
-  const justfile = await text("../justfile");
+  const bbTasks = await text("../bb.edn");
 
   assert.doesNotMatch(build, /pnpm (?:add|install)/);
   for (const script of [build, check]) {
@@ -132,7 +132,7 @@ test("builds separate optimized ClojureScript host and worker targets without in
     build.indexOf("-c prose.playground.worker") <
       build.indexOf("node scripts/check-artifact.mjs"),
   );
-  assert.doesNotMatch(justfile, /node playground\/scripts\/check-artifact\.mjs/);
+  assert.doesNotMatch(bbTasks, /node playground\/scripts\/check-artifact\.mjs/);
   assert.match(
     await text("scripts/check-artifact.mjs"),
     /match\[1\] !== repository\) await access\(localAsset\(match\[1\], dist\)\)/,

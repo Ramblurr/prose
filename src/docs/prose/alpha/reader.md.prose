@@ -99,5 +99,5 @@ is the tested host. Prose keeps its configured inner SCI context and restores
 the caller's current SCI namespace after success, failure, and recursive
 requirements. The trusted JVM adapter remains separate.
 
-Run `just test` to execute the Clojure, ClojureScript, and mandatory Babashka
+Run `bb test` to execute the Clojure, ClojureScript, and mandatory Babashka
 compatibility gates.
