@@ -139,12 +139,6 @@
     "com/googlecode/json-simple/json-simple/1.1.1/json-simple-1.1.1.pom": {
       "sha256": "665f63590defb63d62add21d3525362cf937cf6a1c05e4b0145bae8da8a57f83"
     },
-    "com/hyperfiddle/rcf/20220902-130636/rcf-20220902-130636.jar": {
-      "sha256": "52ba0bc3b452a20cb1d97b2b3963080591f400fb35f34ea08baac69921bdff43"
-    },
-    "com/hyperfiddle/rcf/20220902-130636/rcf-20220902-130636.pom": {
-      "sha256": "7e94db0ddcaabd8022cc1a9e348acbda2a4dd2590308c11cadfc74b52429e542"
-    },
     "com/lambdaisland/glogi/1.3.169/glogi-1.3.169.jar": {
       "sha256": "ab6871449330209a959a6caecf68e1b78e92b2151f7d5af463a58a1edc49d550"
     },

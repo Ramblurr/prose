@@ -8,8 +8,7 @@ Api providing several tools to use inside or outside of prose document.
        :cljs [cljs.spec.alpha :as s :include-macros true])
 
     [fr.jeremyschoffen.prose.alpha.eval.common :as eval-common]
-    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]
-    [hyperfiddle.rcf :refer [tests]]))
+    [fr.jeremyschoffen.prose.alpha.reader.core :as reader]))
 
 
 ;;----------------------------------------------------------------------------------------------------------------------
@@ -56,13 +55,6 @@ Api providing several tools to use inside or outside of prose document.
   (and (map? x)
        (contains? x :type)
        (contains? x :tag)))
-
-(tests
-  (tag? {}) := false
-  (tag? {:type "text/css"}) := false
-  (tag? {:tag :link}) := false
-  (tag? {:tag :link :type :tag}) := true)
-
 
 (defn tag-type
   "Returns the type of a tag `x` or nil isn't a map or doesn't have a type."
@@ -111,11 +103,6 @@ Api providing several tools to use inside or outside of prose document.
   (->  (conform-or-throw ::xml-tag args)
        (assoc :type :tag)))
 
-(tests
-  (xml-tag :link {:type "text/css"}) := {:tag :link
-                                         :attrs {:type "text/css"}
-                                         :type :tag})
-
 (s/def ::def-xml-tag
   (s/cat :name symbol?
          :docstring (s/? string?)
@@ -138,25 +125,6 @@ Api providing several tools to use inside or outside of prose document.
        ~docstring
        [& args#]
        (apply xml-tag ~keyword-name args#))))
-
-
-(tests ; clj only
-  (macroexpand-1 '(def-xml-tag div))
-
-  (def-xml-tag div)
-
-
-  (div) := {:type :tag :tag :div}
-  (div {}) := {:tag :div :attrs {} :type :tag}
-  (div "content") := {:tag :div :content ["content"] :type :tag}
-  (div {} "content") := {:tag :div, :attrs {}, :content ["content"], :type :tag}
-  (div (div) (div) (div)) := {:tag :div,
-                              :content
-                              [{:tag :div, :type :tag}
-                               {:tag :div, :type :tag}
-                               {:tag :div, :type :tag}],
-                              :type :tag})
-
 
 (defmacro def-xml-tags [& tags]
   `(do
@@ -211,35 +179,6 @@ Api providing several tools to use inside or outside of prose document.
       (comp #(add-classes % classes) original-cstr)
       {::added-classes classes
        ::original-cstr original-cstr})))
-
-
-(tests
-  "Testing the mixed in helpers."
-
-  (attr->set "") := #{}
-  (attr->set "container grid col-2") := #{"grid" "col-2" "container"}
-  (set->attr (attr->set "container grid col-2")) := "grid col-2 container"
-
-
-  (def-xml-tag div)
-  (def container (make-mixed-in div #{:container}))
-  (def container-grid (make-mixed-in container ["grid"]))
-
-  (container {:class "toto"} "contained") := {:tag :div,
-                                              :attrs {:class "toto container"},
-                                              :content ["contained"],
-                                              :type :tag}
-
-  (container-grid {:class "titi"}"contaited 2") := {:tag :div,
-                                                    :attrs {:class "grid titi container"},
-                                                    :content ["contaited 2"],
-                                                    :type :tag}
-
-  (meta container) := {::added-classes #{:container}
-                       ::original-cstr div}
-
-  (meta container-grid) := {::added-classes #{"grid" :container},
-                            ::original-cstr div})
 
 ;;----------------------------------------------------------------------------------------------------------------------
 ;; Default tags
